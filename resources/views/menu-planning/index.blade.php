@@ -13,6 +13,25 @@
     activeMenuCode: '',
     activeMenuName: '',
     activeCost: 0,
+    operationalDate: '{{ $defaultOperationalDate ?? now()->format('Y-m-d') }}',
+    menuCode: '{{ $nextMenuCode ?? 'MNU-SS1-' . now()->format('Ymd') . '-01' }}',
+    isGeneratingCode: false,
+    async updateMenuCode() {
+        if (!this.operationalDate) return;
+        this.isGeneratingCode = true;
+        try {
+            const res = await fetch(`{{ route('menu-planning.generate-code') }}?date=${encodeURIComponent(this.operationalDate)}`);
+            const data = await res.json();
+            if (data.menu_code) {
+                this.menuCode = data.menu_code;
+            }
+        } catch (e) {
+            const clean = this.operationalDate.replace(/-/g, '');
+            this.menuCode = `MNU-SS1-${clean}-01`;
+        } finally {
+            this.isGeneratingCode = false;
+        }
+    },
     items: [{ ingredient_id: '', qty_per_portion: '', preparation_notes: '' }],
     addItem() {
         this.items.push({ ingredient_id: '', qty_per_portion: '', preparation_notes: '' });
@@ -390,18 +409,30 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Tanggal Operasional</label>
-                            <input type="date" name="operational_date" required value="{{ now()->format('Y-m-d') }}"
-                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="date" name="operational_date" required x-model="operationalDate" @change="updateMenuCode()"
+                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Kode Menu</label>
-                            <input type="text" name="menu_code" required value="MNU-SS1-{{ now()->format('Ymd') }}-01"
-                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                <span>Kode Menu</span>
+                                <span class="text-[10px] font-extrabold uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">Otomatis</span>
+                            </label>
+                            <div class="relative">
+                                <input type="text" name="menu_code" :value="menuCode" readonly
+                                       class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100/90 font-mono font-extrabold text-xs text-emerald-800 cursor-not-allowed select-all focus:outline-none">
+                                <div x-show="isGeneratingCode" class="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <svg class="animate-spin h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <span class="text-[10px] text-slate-400 mt-1 block">Dibuat otomatis oleh sistem SPPG</span>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Target Porsi (Total)</label>
                             <input type="number" name="target_portions" required min="10" value="1414"
-                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 

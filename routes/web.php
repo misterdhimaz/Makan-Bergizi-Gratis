@@ -44,6 +44,8 @@ Route::middleware('auth')->group(function () {
     // 2. Modul Perencanaan & Validasi Multi-Tahap (Ahli Gizi -> Akuntan PAGU -> Kepala Dapur Approval)
     Route::middleware('role:admin,ahli_gizi,kepala_dapur,akuntan')->group(function () {
         Route::get('/menu-planning', [MenuPlanningController::class, 'index'])->name('menu-planning.index');
+        Route::get('/menu-planning/generate-code', [MenuPlanningController::class, 'generateCode'])
+            ->name('menu-planning.generate-code');
         Route::post('/menu-planning', [MenuPlanningController::class, 'store'])
             ->middleware('role:admin,ahli_gizi')
             ->name('menu-planning.store');

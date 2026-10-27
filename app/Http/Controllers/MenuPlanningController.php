@@ -8,6 +8,8 @@ use App\Models\DailyMenuItem;
 use App\Models\Ingredient;
 use App\Models\ProductionRun;
 use App\Models\SopConfiguration;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -87,6 +89,11 @@ class MenuPlanningController extends Controller
             'revision_needed' => DailyMenu::where('status', 'revision_needed')->count(),
         ];
 
+        // Default tanggal operasional baru & kode menu otomatis
+        $existingToday = DailyMenu::whereDate('operational_date', today())->exists();
+        $defaultOperationalDate = $existingToday ? today()->addDay()->format('Y-m-d') : today()->format('Y-m-d');
+        $nextMenuCode = self::generateNextMenuCode($defaultOperationalDate);
+
         return view('menu-planning.index', compact(
             'menus',
             'ingredients',
@@ -102,8 +109,48 @@ class MenuPlanningController extends Controller
             'chartProteins',
             'chartCosts',
             'statusCounts',
-            'paguLimit'
+            'paguLimit',
+            'defaultOperationalDate',
+            'nextMenuCode'
         ));
+    }
+
+    /**
+     * Endpoint API untuk Generate Kode Menu Otomatis secara Real-Time
+     */
+    public function generateCode(Request $request): JsonResponse
+    {
+        $date = $request->query('date', now()->format('Y-m-d'));
+        $code = self::generateNextMenuCode($date);
+
+        return response()->json([
+            'success' => true,
+            'date' => $date,
+            'menu_code' => $code,
+        ]);
+    }
+
+    /**
+     * Helper Static untuk Menghasilkan Kode Menu Unik & Otomatis: MNU-SS1-YYYYMMDD-XX
+     */
+    public static function generateNextMenuCode(string|Carbon $date): string
+    {
+        try {
+            $parsed = $date instanceof Carbon ? $date : Carbon::parse($date);
+        } catch (\Throwable) {
+            $parsed = now();
+        }
+
+        $dateStr = $parsed->format('Ymd');
+        $count = DailyMenu::whereDate('operational_date', $parsed->toDateString())->count() + 1;
+        $candidate = sprintf('MNU-SS1-%s-%02d', $dateStr, $count);
+
+        while (DailyMenu::where('menu_code', $candidate)->exists()) {
+            $count++;
+            $candidate = sprintf('MNU-SS1-%s-%02d', $dateStr, $count);
+        }
+
+        return $candidate;
     }
 
     /**
@@ -112,8 +159,8 @@ class MenuPlanningController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'operational_date' => ['required', 'date', 'unique:daily_menus,operational_date'],
-            'menu_code' => ['required', 'string', 'max:30', 'unique:daily_menus,menu_code'],
+            'operational_date' => ['required', 'date'],
+            'menu_code' => ['nullable', 'string', 'max:40'],
             'menu_name' => ['required', 'string', 'max:255'],
             'target_portions' => ['required', 'integer', 'min:10'],
             'recipient_category' => ['required', 'in:siswa,balita_bumil,balita_busui,gabungan'],
@@ -127,7 +174,25 @@ class MenuPlanningController extends Controller
             'items.*.ingredient_id' => ['nullable', 'exists:ingredients,id'],
             'items.*.qty_per_portion' => ['nullable', 'numeric', 'min:0.001'],
             'items.*.preparation_notes' => ['nullable', 'string', 'max:255'],
+        ], [
+            'operational_date.required' => 'Tanggal operasional wajib ditentukan.',
+            'operational_date.date' => 'Format tanggal operasional tidak valid.',
+            'menu_name.required' => 'Nama paket menu wajib diisi.',
+            'target_portions.required' => 'Target porsi wajib diisi minimal 10 porsi.',
+            'recipient_category.required' => 'Kategori penerima manfaat wajib dipilih.',
+            'calories_kcal.required' => 'Nilai energi kalori wajib diisi.',
+            'protein_gram.required' => 'Nilai protein wajib diisi.',
+            'carbs_gram.required' => 'Nilai karbohidrat wajib diisi.',
+            'fat_gram.required' => 'Nilai lemak wajib diisi.',
+            'estimated_cost_per_portion.required' => 'Estimasi biaya bahan per porsi wajib diisi.',
         ]);
+
+        // Kode Menu dibuat otomatis dan dijamin unik bebas duplikasi
+        $code = !empty($validated['menu_code']) ? strtoupper(trim($validated['menu_code'])) : '';
+        if (empty($code) || DailyMenu::where('menu_code', $code)->exists()) {
+            $code = self::generateNextMenuCode($validated['operational_date']);
+        }
+        $validated['menu_code'] = $code;
 
         DB::transaction(function () use ($validated) {
             $userRole = Auth::user()->role->value;
@@ -135,7 +200,7 @@ class MenuPlanningController extends Controller
 
             $menu = DailyMenu::create([
                 'operational_date' => $validated['operational_date'],
-                'menu_code' => strtoupper($validated['menu_code']),
+                'menu_code' => $validated['menu_code'],
                 'menu_name' => $validated['menu_name'],
                 'target_portions' => $validated['target_portions'],
                 'recipient_category' => $validated['recipient_category'],
