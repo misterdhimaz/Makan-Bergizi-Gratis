@@ -1,0 +1,22 @@
+# =====================================================================
+# SIM-MBG SPPG SUNGAI SELAYUR 1 - ROOT HTACCESS SECURITY GUARD
+# Melindungi file sensitif (.env, .git, config) dari akses langsung
+# =====================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. BLOKIR MUTLAK AKSES KE FILE SENSITIF (.env, .git, composer, storage)
+    <FilesMatch "^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|\.editorconfig|\.gitignore)">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    # 2. Redirect traffic ke folder public/ jika DocumentRoot belum diarahkan ke /public
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Nonaktifkan directory listing
+Options -Indexes
+

@@ -1,0 +1,81 @@
+# =====================================================================
+# NGINX PRODUCTION SERVER BLOCK UNTUK SIM-MBG SPPG SUNGAI SELAYUR 1
+# Standar Keamanan & Performa Tinggi Badan Gizi Nasional (BGN)
+# =====================================================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name sppg-selayur1.bgn.go.id;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name sppg-selayur1.bgn.go.id;
+
+    # Document Root mengarah langsung ke folder /public
+    root /var/www/sim-mbg-selayur/public;
+    index index.php index.html;
+
+    # SSL Certificates (Let's Encrypt Certbot)
+    ssl_certificate /etc/letsencrypt/live/sppg-selayur1.bgn.go.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sppg-selayur1.bgn.go.id/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Batas Maksimal Upload Berkas (Lampiran Foto / Logo / Background)
+    client_max_body_size 12M;
+
+    # Gzip Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/x-javascript application/xml application/json;
+
+    # Logging
+    access_log /var/log/nginx/sppg_selayur1_access.log;
+    error_log /var/log/nginx/sppg_selayur1_error.log warn;
+
+    # Front Controller Routing
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Static Assets Caching
+    location ~* \.(jpg|jpeg|png|gif|ico|webp|svg|css|js|woff|woff2|ttf)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        access_log off;
+    }
+
+    # PHP FastCGI Processing
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock; # Sesuaikan versi PHP peladen Anda (php8.2-fpm atau php8.3-fpm)
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 256 16k;
+        fastcgi_busy_buffers_size 256k;
+        fastcgi_temp_file_write_size 256k;
+    }
+
+    # BLOKIR MUTLAK AKSES KE FILE HIDDEN, .ENV, DAN SOURCE CODE
+    location ~ /\.(?!well-known).* {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ ^/(storage/logs|bootstrap/cache)/ {
+        deny all;
+    }
+}
+
