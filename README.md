@@ -10,8 +10,8 @@ Ikuti langkah-langkah berikut untuk menjalankan sistem di lingkungan pengembang 
 
 ### 2. Kloning Repositori
 ```bash
-git clone <URL_REPOSITORY_GITHUB>
-cd AgnesBelajar
+git clone https://github.com/misterdhimaz/Makan-Bergizi-Gratis.git
+cd Makan-Bergizi-Gratis.git
 ```
 
 ### 3. Instalasi Dependensi PHP
