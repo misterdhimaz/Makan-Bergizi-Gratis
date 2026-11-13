@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\ActivityLog;
 use App\Models\BeneficiaryInstitution;
 use App\Models\ComplaintTicket;
@@ -187,6 +188,13 @@ class DistributionController extends Controller
 
     public function storeConfirmation(Request $request, Delivery $delivery): RedirectResponse
     {
+        $user = $request->user();
+        if ($user->hasRole(UserRole::GURU_PIC)) {
+            if (! $user->beneficiary_institution_id || $delivery->beneficiary_institution_id !== $user->beneficiary_institution_id) {
+                abort(403, 'Akses Ditolak: Anda hanya berhak mengonfirmasi pengiriman untuk unit sekolah/posyandu Anda sendiri.');
+            }
+        }
+
         $validated = $request->validate([
             'received_good_portions' => ['required', 'integer', 'min:0'],
             'received_damaged_or_missing_portions' => ['required', 'integer', 'min:0'],
