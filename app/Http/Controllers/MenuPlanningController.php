@@ -158,34 +158,7 @@ class MenuPlanningController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'operational_date' => ['required', 'date'],
-            'menu_code' => ['nullable', 'string', 'max:40'],
-            'menu_name' => ['required', 'string', 'max:255'],
-            'target_portions' => ['required', 'integer', 'min:10'],
-            'recipient_category' => ['required', 'in:siswa,balita_bumil,balita_busui,gabungan'],
-            'calories_kcal' => ['required', 'numeric', 'min:100'],
-            'protein_gram' => ['required', 'numeric', 'min:1'],
-            'carbs_gram' => ['required', 'numeric', 'min:1'],
-            'fat_gram' => ['required', 'numeric', 'min:1'],
-            'fiber_gram' => ['nullable', 'numeric', 'min:0'],
-            'estimated_cost_per_portion' => ['required', 'numeric', 'min:1000'],
-            'items' => ['nullable', 'array'],
-            'items.*.ingredient_id' => ['nullable', 'exists:ingredients,id'],
-            'items.*.qty_per_portion' => ['nullable', 'numeric', 'min:0.001'],
-            'items.*.preparation_notes' => ['nullable', 'string', 'max:255'],
-        ], [
-            'operational_date.required' => 'Tanggal operasional wajib ditentukan.',
-            'operational_date.date' => 'Format tanggal operasional tidak valid.',
-            'menu_name.required' => 'Nama paket menu wajib diisi.',
-            'target_portions.required' => 'Target porsi wajib diisi minimal 10 porsi.',
-            'recipient_category.required' => 'Kategori penerima manfaat wajib dipilih.',
-            'calories_kcal.required' => 'Nilai energi kalori wajib diisi.',
-            'protein_gram.required' => 'Nilai protein wajib diisi.',
-            'carbs_gram.required' => 'Nilai karbohidrat wajib diisi.',
-            'fat_gram.required' => 'Nilai lemak wajib diisi.',
-            'estimated_cost_per_portion.required' => 'Estimasi biaya bahan per porsi wajib diisi.',
-        ]);
+        $validated = $this->validateMenuRequest($request);
 
         // Kode Menu dibuat otomatis dan dijamin unik bebas duplikasi
         $code = !empty($validated['menu_code']) ? strtoupper(trim($validated['menu_code'])) : '';
@@ -219,20 +192,7 @@ class MenuPlanningController extends Controller
                 'approval_notes' => $isAdmin ? 'Ditetapkan & disetujui langsung oleh Administrator Pusat.' : null,
             ]);
 
-            if (! empty($validated['items'])) {
-                foreach ($validated['items'] as $item) {
-                    if (empty($item['ingredient_id']) || empty($item['qty_per_portion'])) {
-                        continue;
-                    }
-                    DailyMenuItem::create([
-                        'daily_menu_id' => $menu->id,
-                        'ingredient_id' => $item['ingredient_id'],
-                        'qty_per_portion' => $item['qty_per_portion'],
-                        'total_planned_qty' => round($item['qty_per_portion'] * $validated['target_portions'], 2),
-                        'preparation_notes' => $item['preparation_notes'] ?? null,
-                    ]);
-                }
-            }
+            $this->syncMenuItems($menu, $validated['items'] ?? [], (int) $validated['target_portions']);
 
             if ($isAdmin) {
                 ProductionRun::create([
@@ -256,6 +216,115 @@ class MenuPlanningController extends Controller
 
         return redirect()->route('menu-planning.index')
             ->with('success', 'Rencana Menu Harian baru berhasil diajukan dan diteruskan ke Akuntan untuk verifikasi PAGU.');
+    }
+
+    /**
+     * Revisi & Pengajuan Ulang Rencana Menu yang berstatus draft atau revision_needed
+     */
+    public function update(Request $request, DailyMenu $dailyMenu): RedirectResponse
+    {
+        if (! in_array($dailyMenu->status, ['draft', 'revision_needed'])) {
+            $message = 'Menu dengan status saat ini tidak dapat direvisi karena sedang dalam peninjauan, telah disetujui, atau sudah masuk produksi.';
+
+            if ($request->expectsJson()) {
+                abort(422, $message);
+            }
+
+            return redirect()->route('menu-planning.index')->with('error', $message);
+        }
+
+        $validated = $this->validateMenuRequest($request, isUpdate: true);
+
+        DB::transaction(function () use ($dailyMenu, $validated) {
+            $dailyMenu->update([
+                'operational_date' => $validated['operational_date'] ?? $dailyMenu->operational_date,
+                'menu_name' => $validated['menu_name'],
+                'target_portions' => $validated['target_portions'],
+                'recipient_category' => $validated['recipient_category'],
+                'calories_kcal' => $validated['calories_kcal'],
+                'protein_gram' => $validated['protein_gram'],
+                'carbs_gram' => $validated['carbs_gram'],
+                'fat_gram' => $validated['fat_gram'],
+                'fiber_gram' => $validated['fiber_gram'] ?? $dailyMenu->fiber_gram ?? 7.5,
+                'estimated_cost_per_portion' => $validated['estimated_cost_per_portion'],
+                'status' => 'pending_budget_review',
+                'pagu_status' => 'pending',
+                'pagu_notes' => 'Telah direvisi oleh ' . Auth::user()->name . ' dan diajukan ulang untuk verifikasi PAGU.',
+                'verified_by_accountant_id' => null,
+                'pagu_verified_at' => null,
+                'approved_by' => null,
+                'approved_at' => null,
+                'approval_notes' => null,
+            ]);
+
+            $dailyMenu->items()->delete();
+            $this->syncMenuItems($dailyMenu, $validated['items'] ?? [], (int) $validated['target_portions']);
+
+            ActivityLog::record(
+                'update_menu',
+                'menu_planning',
+                Auth::user()->name . " merevisi rencana menu {$dailyMenu->menu_code} ({$dailyMenu->menu_name}) target {$dailyMenu->target_portions} porsi dan mengajukan ulang untuk verifikasi PAGU."
+            );
+        });
+
+        return redirect()->route('menu-planning.index')
+            ->with('success', "Revisi menu {$dailyMenu->menu_code} berhasil disimpan dan diajukan ulang ke Akuntan untuk verifikasi PAGU.");
+    }
+
+    /**
+     * Validasi input pengajuan maupun revisi rencana menu harian
+     */
+    private function validateMenuRequest(Request $request, bool $isUpdate = false): array
+    {
+        $dateRules = $isUpdate ? ['sometimes', 'required', 'date'] : ['required', 'date'];
+
+        return $request->validate([
+            'operational_date' => $dateRules,
+            'menu_code' => ['nullable', 'string', 'max:40'],
+            'menu_name' => ['required', 'string', 'max:255'],
+            'target_portions' => ['required', 'integer', 'min:10'],
+            'recipient_category' => ['required', 'in:siswa,balita_bumil,balita_busui,gabungan'],
+            'calories_kcal' => ['required', 'numeric', 'min:100'],
+            'protein_gram' => ['required', 'numeric', 'min:1'],
+            'carbs_gram' => ['required', 'numeric', 'min:1'],
+            'fat_gram' => ['required', 'numeric', 'min:1'],
+            'fiber_gram' => ['nullable', 'numeric', 'min:0'],
+            'estimated_cost_per_portion' => ['required', 'numeric', 'min:1000'],
+            'items' => ['nullable', 'array'],
+            'items.*.ingredient_id' => ['nullable', 'exists:ingredients,id'],
+            'items.*.qty_per_portion' => ['nullable', 'numeric', 'min:0.001'],
+            'items.*.preparation_notes' => ['nullable', 'string', 'max:255'],
+        ], [
+            'operational_date.required' => 'Tanggal operasional wajib ditentukan.',
+            'operational_date.date' => 'Format tanggal operasional tidak valid.',
+            'menu_name.required' => 'Nama paket menu wajib diisi.',
+            'target_portions.required' => 'Target porsi wajib diisi minimal 10 porsi.',
+            'recipient_category.required' => 'Kategori penerima manfaat wajib dipilih.',
+            'calories_kcal.required' => 'Nilai energi kalori wajib diisi.',
+            'protein_gram.required' => 'Nilai protein wajib diisi.',
+            'carbs_gram.required' => 'Nilai karbohidrat wajib diisi.',
+            'fat_gram.required' => 'Nilai lemak wajib diisi.',
+            'estimated_cost_per_portion.required' => 'Estimasi biaya bahan per porsi wajib diisi.',
+        ]);
+    }
+
+    /**
+     * Sinkronisasi baris komposisi bahan baku menu harian
+     */
+    private function syncMenuItems(DailyMenu $menu, array $items, int $targetPortions): void
+    {
+        foreach ($items as $item) {
+            if (empty($item['ingredient_id']) || empty($item['qty_per_portion'])) {
+                continue;
+            }
+            DailyMenuItem::create([
+                'daily_menu_id' => $menu->id,
+                'ingredient_id' => $item['ingredient_id'],
+                'qty_per_portion' => $item['qty_per_portion'],
+                'total_planned_qty' => round($item['qty_per_portion'] * $targetPortions, 2),
+                'preparation_notes' => $item['preparation_notes'] ?? null,
+            ]);
+        }
     }
 
     /**

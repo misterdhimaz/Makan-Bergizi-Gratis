@@ -49,6 +49,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/menu-planning', [MenuPlanningController::class, 'store'])
             ->middleware('role:admin,ahli_gizi')
             ->name('menu-planning.store');
+        Route::put('/menu-planning/{dailyMenu}', [MenuPlanningController::class, 'update'])
+            ->middleware('role:admin,ahli_gizi')
+            ->name('menu-planning.update');
         Route::post('/menu-planning/{dailyMenu}/verify-pagu', [MenuPlanningController::class, 'verifyPagu'])
             ->middleware('role:admin,akuntan')
             ->name('menu-planning.verify-pagu');
