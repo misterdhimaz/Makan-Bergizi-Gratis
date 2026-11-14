@@ -2,10 +2,12 @@
 
 @section('title', 'Pemeriksaan Kepatuhan APD Relawan Dapur')
 @section('page_title', 'Pemeriksaan Kepatuhan APD Relawan Dapur')
-@section('page_subtitle', 'Formulir ceklis harian Ahli Gizi untuk pemantauan 5 APD & sanitasi 35 relawan dapur per shift')
+@section('page_subtitle')
+    Formulir ceklis harian Ahli Gizi untuk pemantauan 5 APD & sanitasi {{ $defaultVolunteers }} relawan dapur per shift
+@endsection
 
 @section('content')
-<div x-data="{
+<div class="apd-inspection-page" x-data="{
     activeTab: 'all', // 'all', 'form', 'history', 'charts'
     openVerifyModal: false,
     selectedInspection: null,
@@ -19,6 +21,54 @@
     cleanNails: true,
     noJewelry: true,
     handwashReady: true,
+    modalTrigger: null,
+
+    openModal(name, trigger) {
+        this.modalTrigger = trigger;
+        this[name] = true;
+        this.$nextTick(() => this.focusModal(name));
+    },
+    focusModal(name) {
+        const dialog = this.$refs[`${name}Dialog`];
+        if (!dialog) return;
+        const focusable = [...dialog.querySelectorAll('input, select, textarea, button, a[href], [tabindex]')]
+            .filter(element => !element.disabled && element.tabIndex >= 0 && (element.tagName !== 'INPUT' || element.type !== 'hidden') && element.getClientRects().length > 0);
+        (focusable.find(element => !element.matches('button')) || focusable[0] || dialog).focus();
+    },
+    closeModal(name) {
+        this[name] = false;
+        const trigger = this.modalTrigger;
+        this.$nextTick(() => {
+            if (trigger?.isConnected) trigger.focus();
+            this.modalTrigger = null;
+        });
+    },
+    trapModalFocus(event) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            this.closeModal(event.currentTarget.dataset.modalName);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const dialog = event.currentTarget;
+        const focusable = [...dialog.querySelectorAll('input, select, textarea, button, a[href], [tabindex]')]
+            .filter(element => !element.disabled && element.tabIndex >= 0 && (element.tagName !== 'INPUT' || element.type !== 'hidden') && element.getClientRects().length > 0);
+        if (focusable.length === 0) {
+            event.preventDefault();
+            dialog.focus();
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+            event.preventDefault();
+            first.focus();
+        }
+    },
 
     get complianceScore() {
         if (this.volunteersChecked <= 0) return 100;
@@ -50,34 +100,54 @@
         this.handwashReady = true;
     },
 
-    openVerify(item) {
+    openVerify(item, trigger) {
         this.selectedInspection = item;
-        this.openVerifyModal = true;
+        this.openModal('openVerifyModal', trigger);
     }
 }">
+    <style>
+        .apd-inspection-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        .apd-inspection-page select,
+        .apd-inspection-page textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .apd-inspection-page button {
+            min-height: 44px;
+        }
+
+        .apd-inspection-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+        .apd-inspection-modal select,
+        .apd-inspection-modal textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .apd-inspection-modal button {
+            min-height: 44px;
+        }
+    </style>
 
     <!-- Hero Banner Kepatuhan APD Dapur -->
-    <div class="gsap-reveal relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#06204D] via-[#092B66] to-[#041432] text-white p-6 lg:p-8 mb-6 shadow-xl border border-emerald-500/20">
-        <div class="ambient-orb w-72 h-72 bg-emerald-500/20 -top-20 -right-10"></div>
-        <div class="ambient-orb w-56 h-56 bg-amber-400/15 bottom-0 left-1/3" style="animation-delay: -5s;"></div>
-
+    <div class="relative rounded-3xl overflow-hidden bg-[#06204D] text-white p-6 lg:p-8 mb-6 shadow-sm border border-slate-200">
         <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div>
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold uppercase tracking-widest mb-3">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    SOP BGN • Standar Higienitas 35 Relawan Dapur SPPG Sungai Selayur 1
+                    SOP BGN • Standar Higienitas {{ $defaultVolunteers }} Relawan Dapur SPPG Sungai Selayur 1
                 </div>
                 <h2 class="font-display font-extrabold text-2xl lg:text-3xl tracking-tight text-white">
                     Pemeriksaan Kepatuhan 5 APD & Higienitas Dapur
                 </h2>
                 <p class="text-xs sm:text-sm text-emerald-100/75 mt-1.5 max-w-2xl leading-relaxed">
-                    Formulir ceklis harian resmi bagi <strong class="text-white">Ahli Gizi</strong> untuk memeriksa kelengkapan celemek, penutup kepala, masker, sarung tangan steril, dan sepatu tertutup pada <strong class="text-white">35 Relawan Dapur</strong> sebelum proses pemorsian ompreng 1.414 porsi.
+                    Formulir ceklis harian resmi bagi <strong class="text-white">Ahli Gizi</strong> untuk memeriksa kelengkapan celemek, penutup kepala, masker, sarung tangan steril, dan sepatu tertutup pada <strong class="text-white">{{ $defaultVolunteers }} Relawan Dapur</strong> sebelum proses pemorsian ompreng {{ number_format($activeProduction?->planned_portions ?? $activeProduction?->dailyMenu?->target_portions ?? 0) }} porsi.
                 </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3 shrink-0">
                 <a href="{{ route('quality-control.index') }}"
-                   class="px-4 py-3 rounded-2xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/40 text-teal-200 font-bold text-xs flex items-center gap-2 transition shadow-sm">
+                   class="min-h-touch px-4 py-3 rounded-2xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/40 text-teal-200 font-bold text-xs flex items-center gap-2 transition shadow-sm">
                     <svg class="w-4 h-4 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
@@ -88,19 +158,19 @@
 
         <!-- 4 KPI Strip -->
         <div class="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-white/10">
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-300/80">Rata-rata Kepatuhan APD</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $avgCompliance }}% <span class="text-xs font-normal text-slate-300">Target ≥ 90%</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-amber-300/80">Kapasitas Relawan Dapur</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $defaultVolunteers }} <span class="text-xs font-normal text-slate-300">Relawan / Shift</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-teal-300/80">Item Wajib APD BGN</p>
                 <p class="font-display font-extrabold text-2xl text-emerald-300 mt-1">5 APD <span class="text-xs font-normal text-slate-300">+ 3 Higienitas</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-rose-300/80">Pelanggaran Kritis</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $criticalCount }} <span class="text-xs font-normal text-slate-300">Tercatat</span></p>
             </div>
@@ -116,12 +186,12 @@
                 Tampilkan Semua Panel
             </button>
             <button @click="activeTab = 'form'"
-                    :class="activeTab === 'form' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    :class="activeTab === 'form' ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 + Form Ceklis APD Hari Ini
             </button>
             <button @click="activeTab = 'history'"
-                    :class="activeTab === 'history' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    :class="activeTab === 'history' ? 'bg-teal-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Riwayat Kepatuhan APD ({{ $recentInspections->count() }})
             </button>
@@ -133,7 +203,7 @@
         </div>
 
         @if($shift !== 'all' || $status !== 'all')
-            <a href="{{ route('apd-inspection.index') }}" class="px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition">
+            <a href="{{ route('apd-inspection.index') }}" class="min-h-touch inline-flex items-center px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition">
                 Reset Filter Aktif
             </a>
         @endif
@@ -147,16 +217,16 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600">Formulir Ceklis Harian Ahli Gizi</span>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-700">Formulir Ceklis Harian Ahli Gizi</span>
                 </div>
                 <h3 class="font-display font-extrabold text-xl text-slate-900 mt-1">Ceklis Kepatuhan 5 Kelengkapan APD & Higienitas Personel</h3>
-                <p class="text-xs text-slate-500">Periksa kepatuhan 35 relawan dapur per shift. Anda dapat mencentang satu per satu atau gunakan tombol cepat.</p>
+                <p class="text-xs text-slate-500">                Periksa kepatuhan {{ $defaultVolunteers }} relawan dapur per shift. Anda dapat mencentang satu per satu atau gunakan tombol cepat.</p>
             </div>
             <button type="button" @click="setAllFull()" class="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-2 cursor-pointer border border-emerald-200 shadow-xs shrink-0">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                Tandai Semua 35 Relawan Patuh (100%)
+                Tandai Semua {{ $defaultVolunteers }} Relawan Patuh (100%)
             </button>
         </div>
 
@@ -189,7 +259,7 @@
             </div>
 
             <!-- LIVE SCORE INDICATOR GAUGE (LEBAR PENUH) -->
-            <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-[#0A2647] to-slate-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+            <div class="p-5 rounded-2xl bg-[#06204D] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
                 <div>
                     <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-300">Kalkulasi Skor Kepatuhan Real-Time</span>
                     <div class="flex items-center gap-3 mt-1">
@@ -201,7 +271,7 @@
                 </div>
                 <div class="text-left sm:text-right text-xs text-slate-300">
                     <p>Standar Minimal SOP BGN: <strong class="text-white">≥ 90%</strong></p>
-                    <p class="text-[11px] text-slate-400 mt-0.5">Basis Data: <span x-text="volunteersChecked"></span> Relawan Dapur</p>
+                    <p class="text-[11px] text-slate-300 mt-0.5">Basis Data: <span x-text="volunteersChecked"></span> Relawan Dapur</p>
                 </div>
             </div>
 
@@ -224,7 +294,7 @@
                             <div class="flex items-center gap-1.5">
                                 <input type="number" name="apron_compliant_count" x-model.number="apronCount" min="0" :max="volunteersChecked" required
                                        class="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white focus:border-emerald-500">
-                                <span class="text-xs text-slate-400 font-mono">/ <span x-text="volunteersChecked"></span></span>
+                                <span class="text-xs text-slate-600 font-mono">/ <span x-text="volunteersChecked"></span></span>
                             </div>
                         </div>
                     </div>
@@ -243,7 +313,7 @@
                             <div class="flex items-center gap-1.5">
                                 <input type="number" name="hairnet_compliant_count" x-model.number="hairnetCount" min="0" :max="volunteersChecked" required
                                        class="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white focus:border-emerald-500">
-                                <span class="text-xs text-slate-400 font-mono">/ <span x-text="volunteersChecked"></span></span>
+                                <span class="text-xs text-slate-600 font-mono">/ <span x-text="volunteersChecked"></span></span>
                             </div>
                         </div>
                     </div>
@@ -262,7 +332,7 @@
                             <div class="flex items-center gap-1.5">
                                 <input type="number" name="mask_compliant_count" x-model.number="maskCount" min="0" :max="volunteersChecked" required
                                        class="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white focus:border-emerald-500">
-                                <span class="text-xs text-slate-400 font-mono">/ <span x-text="volunteersChecked"></span></span>
+                                <span class="text-xs text-slate-600 font-mono">/ <span x-text="volunteersChecked"></span></span>
                             </div>
                         </div>
                     </div>
@@ -281,7 +351,7 @@
                             <div class="flex items-center gap-1.5">
                                 <input type="number" name="gloves_compliant_count" x-model.number="glovesCount" min="0" :max="volunteersChecked" required
                                        class="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white focus:border-emerald-500">
-                                <span class="text-xs text-slate-400 font-mono">/ <span x-text="volunteersChecked"></span></span>
+                                <span class="text-xs text-slate-600 font-mono">/ <span x-text="volunteersChecked"></span></span>
                             </div>
                         </div>
                     </div>
@@ -300,7 +370,7 @@
                             <div class="flex items-center gap-1.5">
                                 <input type="number" name="safety_shoes_compliant_count" x-model.number="shoesCount" min="0" :max="volunteersChecked" required
                                        class="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white focus:border-emerald-500">
-                                <span class="text-xs text-slate-400 font-mono">/ <span x-text="volunteersChecked"></span></span>
+                                <span class="text-xs text-slate-600 font-mono">/ <span x-text="volunteersChecked"></span></span>
                             </div>
                         </div>
                     </div>
@@ -345,19 +415,19 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Catatan Temuan Ahli Gizi</label>
-                    <textarea name="notes" rows="3" placeholder="Cth: Seluruh 35 relawan tertib memakai APD lengkap. Area pemorsian higienis..."
+                    <textarea name="notes" rows="3" placeholder="Cth: Seluruh {{ $defaultVolunteers }} relawan tertib memakai APD lengkap. Area pemorsian higienis..."
                               class="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs font-medium focus:border-emerald-500 focus:outline-none bg-white"></textarea>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Unggah Foto Dokumentasi Kepatuhan (Opsional)</label>
                     <input type="file" name="photo" accept="image/*"
                            class="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-xs text-slate-600 focus:border-emerald-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 bg-white">
-                    <p class="text-[11px] text-slate-400 mt-1">Dokumentasi kepatuhan 5 APD 35 relawan dapur (JPG, PNG, WEBP)</p>
+                    <p class="text-[11px] text-slate-600 mt-1">Dokumentasi kepatuhan 5 APD {{ $defaultVolunteers }} relawan dapur (JPG, PNG, WEBP)</p>
                 </div>
             </div>
 
             <div class="flex justify-end pt-2">
-                <button type="submit" class="px-7 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition cursor-pointer flex items-center gap-2">
+                <button type="submit" class="px-7 py-3.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                     </svg>
@@ -375,7 +445,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
-                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-teal-600">Log Pemeriksaan Higienitas</span>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-teal-700">Log Pemeriksaan Higienitas</span>
                 </div>
                 <h3 class="font-display font-extrabold text-xl text-slate-900 mt-1">Riwayat Pemeriksaan Kepatuhan APD Dapur</h3>
                 <p class="text-xs text-slate-500">Rekam jejak pemeriksaan harian 5 APD oleh Ahli Gizi dan verifikasi Kepala Dapur.</p>
@@ -390,7 +460,7 @@
                     <option value="Pagi (05:00 - 11:00)" {{ $shift === 'Pagi (05:00 - 11:00)' ? 'selected' : '' }}>Pagi</option>
                     <option value="Siang (11:00 - 17:00)" {{ $shift === 'Siang (11:00 - 17:00)' ? 'selected' : '' }}>Siang</option>
                 </select>
-                <button type="submit" class="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition">
+                <button type="submit" class="px-4 py-2 rounded-xl bg-teal-700 text-white text-xs font-bold hover:bg-teal-800 transition">
                     Filter
                 </button>
             </form>
@@ -404,7 +474,7 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                        <tr class="border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                             <th class="py-3.5 px-4">Tanggal & Shift</th>
                             <th class="py-3.5 px-4">Ahli Gizi (Inspektor)</th>
                             <th class="py-3.5 px-4">Rincian 5 APD (Patuh/Total)</th>
@@ -455,7 +525,7 @@
                                 <td class="py-3.5 px-4">
                                     <span class="font-display font-extrabold text-sm text-slate-900 block">{{ $insp->compliance_percentage }}%</span>
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border {{ $badge['class'] }}">
-                                        <span class="w-1.5 h-1.5 rounded-full {{ $badge['dot'] }}"></span>
+                                        <span aria-hidden="true">{{ $insp->status === 'patuh_penuh' ? '✓' : ($insp->status === 'peringatan' ? '!' : '×') }}</span>
                                         {{ $badge['label'] }}
                                     </span>
                                 </td>
@@ -472,12 +542,12 @@
                                         </span>
                                     @else
                                         @if(in_array(auth()->user()->role->value, ['admin', 'kepala_dapur']))
-                                            <button @click="openVerify({{ Js::from($insp) }})"
+                                            <button @click="openVerify({{ Js::from($insp) }}, $event.currentTarget)"
                                                     class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-bold transition cursor-pointer">
                                                 Verifikasi Ka. Dapur
                                             </button>
                                         @else
-                                            <span class="text-[11px] text-slate-400 font-medium">Menunggu Verifikasi</span>
+                                            <span class="text-[11px] text-slate-600 font-medium">Menunggu Verifikasi</span>
                                         @endif
                                     @endif
                                 </td>
@@ -508,12 +578,12 @@
                 </div>
             </div>
 
-            <div class="lg:col-span-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80 flex flex-col justify-between">
+            <div class="lg:col-span-4 p-5 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col justify-between">
                 <div>
                     <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-white/80 px-2.5 py-1 rounded-full border border-emerald-200 inline-block mb-3">
                         Protokol SOP BGN
                     </span>
-                    <h4 class="font-bold text-slate-900 text-sm mb-2">Standar 35 Relawan Dapur</h4>
+                    <h4 class="font-bold text-slate-900 text-sm mb-2">Standar {{ $defaultVolunteers }} Relawan Dapur</h4>
                     <ul class="text-xs text-slate-600 space-y-2 leading-relaxed">
                         <li class="flex items-start gap-2">
                             <span class="text-emerald-600 font-bold">✓</span>
@@ -532,7 +602,7 @@
 
                 <div class="mt-4 pt-3 border-t border-emerald-200 flex items-center justify-between">
                     <span class="text-xs text-slate-500 font-semibold">Audit Suhu Makanan?</span>
-                    <a href="{{ route('quality-control.index') }}" class="text-xs font-bold text-emerald-800 hover:underline">
+                    <a href="{{ route('quality-control.index') }}" class="min-h-touch inline-flex items-center text-xs font-bold text-emerald-800 hover:underline">
                         Buka Cek Suhu &rarr;
                     </a>
                 </div>
@@ -542,14 +612,14 @@
 
     <!-- MODAL VERIFIKASI TINDAK LANJUT KEPALA DAPUR -->
     <template x-teleport="body">
-        <div x-show="openVerifyModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-            <div @click.away="openVerifyModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-auto">
+        <div x-show="openVerifyModal" x-cloak class="apd-inspection-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
+            <div x-ref="openVerifyModalDialog" data-modal-name="openVerifyModal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="apd-verification-modal-title" @keydown="trapModalFocus($event)" @click.away="closeModal('openVerifyModal')" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
-                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Otoritas Kepala Dapur</span>
-                        <h3 class="font-display font-extrabold text-base text-slate-900">Verifikasi Hasil Pemeriksaan APD</h3>
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-700">Otoritas Kepala Dapur</span>
+                        <h3 id="apd-verification-modal-title" class="font-display font-extrabold text-base text-slate-900">Verifikasi Hasil Pemeriksaan APD</h3>
                     </div>
-                    <button @click="openVerifyModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="closeModal('openVerifyModal')" aria-label="Tutup dialog verifikasi APD" class="min-w-touch p-2 rounded-xl text-slate-600 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" :action="'{{ url('/apd-inspection') }}/' + (selectedInspection ? selectedInspection.id : '') + '/verify'" class="space-y-4">
@@ -564,13 +634,13 @@
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Tindakan Korektif / Catatan Pembinaan Relawan</label>
-                        <textarea name="corrective_action" rows="3" required
+                        <textarea name="corrective_action" aria-label="Tindakan Korektif / Catatan Pembinaan Relawan" rows="3" required
                                   placeholder="Cth: Telah dilakukan pembinaan langsung kepada relawan di pos pemorsian untuk selalu memakai masker dengan rapat..."
                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:border-amber-500 focus:outline-none"></textarea>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-2">
-                        <button type="button" @click="openVerifyModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button>
+                        <button type="button" @click="closeModal('openVerifyModal')" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button>
                         <button type="submit" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold shadow-md cursor-pointer">Verifikasi & Simpan</button>
                     </div>
                 </form>

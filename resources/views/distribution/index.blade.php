@@ -1,48 +1,184 @@
 @extends('layouts.app')
 
-@section('title', 'Distribusi, Konfirmasi & Tiket Keluhan')
-@section('page_title', 'Distribusi Armada & Tiket Keluhan')
-@section('page_subtitle', 'Monitoring pengiriman 1.414 porsi, uji organoleptik sekolah & penanganan keluhan')
+@section('title', 'Distribusi & Penerimaan')
+@section('page_title', 'Distribusi & Penerimaan')
+@section('page_subtitle', 'Status pengiriman, konfirmasi penerimaan, dan tindak lanjut keluhan')
+
+@push('styles')
+<style>
+    .distribution-page input:not([type="checkbox"]):not([type="radio"]),
+    .distribution-page select,
+    .distribution-page textarea {
+        min-height: 44px;
+        padding: 0.625rem 0.875rem;
+        font-size: 16px;
+    }
+
+    .distribution-page textarea { min-height: 96px; }
+    .distribution-page button { min-height: 44px; }
+    .distribution-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+    .distribution-modal select,
+    .distribution-modal textarea {
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .distribution-modal input[type="file"] {
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .distribution-modal button { min-height: 44px; }
+
+    .distribution-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .distribution-tab-list {
+        display: flex;
+        flex-direction: column;
+        max-width: 100%;
+        gap: 0.5rem;
+    }
+
+    .distribution-tab-list button {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .distribution-tab-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    @media (min-width: 640px) {
+        .distribution-tab-actions {
+            flex-direction: row;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .distribution-tabs {
+            align-items: center;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .distribution-tab-list {
+            flex-direction: row;
+        }
+
+        .distribution-tab-list button {
+            width: auto;
+        }
+    }
+</style>
+@endpush
 
 @section('content')
-<div x-data="{
-    activeTab: 'deliveries',
+<div class="distribution-page space-y-6" x-data="{
+    activeTab: new URLSearchParams(window.location.search).get('tab') === 'complaints' ? 'complaints' : 'deliveries',
     openWaybillModal: false,
     openComplaintModal: false,
     openResolveModal: false,
     resolveTicketId: null,
     resolveTicketNumber: '',
     resolveInstitutionName: '',
-    openResolve(id, num, inst) {
+    modalTrigger: null,
+    openModal(name, trigger) {
+        this.modalTrigger = trigger;
+        this[name] = true;
+        this.$nextTick(() => this.focusModal(name));
+    },
+    focusModal(name) {
+        const dialog = this.$refs[`${name}Dialog`];
+        if (!dialog) return;
+        const focusable = [...dialog.querySelectorAll('input, select, textarea, button, a[href], [tabindex]')]
+            .filter(element => !element.disabled && element.tabIndex >= 0 && (element.tagName !== 'INPUT' || element.type !== 'hidden') && element.getClientRects().length > 0);
+        (focusable.find(element => !element.matches('button')) || focusable[0] || dialog).focus();
+    },
+    closeModal(name) {
+        this[name] = false;
+        const trigger = this.modalTrigger;
+        this.$nextTick(() => {
+            if (trigger?.isConnected) trigger.focus();
+            this.modalTrigger = null;
+        });
+    },
+    trapModalFocus(event) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            this.closeModal(event.currentTarget.dataset.modalName);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const dialog = event.currentTarget;
+        const focusable = [...dialog.querySelectorAll('input, select, textarea, button, a[href], [tabindex]')]
+            .filter(element => !element.disabled && element.tabIndex >= 0 && (element.tagName !== 'INPUT' || element.type !== 'hidden') && element.getClientRects().length > 0);
+        if (focusable.length === 0) {
+            event.preventDefault();
+            dialog.focus();
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+            event.preventDefault();
+            first.focus();
+        }
+    },
+    init() {
+        const params = new URLSearchParams(window.location.search);
+        this.openWaybillModal = params.get('action') === 'create-waybill';
+        this.openComplaintModal = params.get('action') === 'create-complaint';
+        this.$nextTick(() => {
+            if (this.openWaybillModal) this.focusModal('openWaybillModal');
+            if (this.openComplaintModal) this.focusModal('openComplaintModal');
+        });
+        const deliveryId = params.get('delivery_id');
+        if (deliveryId) {
+            setTimeout(() => document.getElementById(`delivery-${deliveryId}`)?.scrollIntoView({ block: 'start' }), 150);
+        }
+    },
+    openResolve(id, num, inst, trigger) {
         this.resolveTicketId = id;
         this.resolveTicketNumber = num;
         this.resolveInstitutionName = inst;
-        this.openResolveModal = true;
+        this.openModal('openResolveModal', trigger);
     }
 }">
 
     <!-- PERINGATAN PRIORITAS TIKET KELUHAN KRITIS (FITUR 7) -->
     @if(isset($criticalTickets) && $criticalTickets->count() > 0)
-        <div class="mb-6 p-4 rounded-3xl bg-gradient-to-r from-rose-600 via-rose-700 to-red-800 text-white shadow-xl border border-rose-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse">
+        <div class="rounded-2xl border border-red-200 bg-red-50 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div class="flex items-center gap-3.5">
-                <div class="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <div class="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                    <svg class="w-6 h-6 text-red-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 </div>
                 <div>
-                    <h4 class="text-xs sm:text-sm font-black uppercase tracking-wider">Perhatian Kritis: Terdapat {{ $criticalTickets->count() }} Keluhan Berstatus Kritis dari Sekolah!</h4>
-                    <p class="text-[11px] text-rose-100">SOP BGN: Asisten Lapangan & Kepala Dapur wajib menindaklanjuti dan mengunggah bukti penyelesaian hari ini.</p>
+                    <h4 class="text-sm font-bold text-red-900">{{ $criticalTickets->count() }} keluhan kritis perlu ditindaklanjuti</h4>
+                    <p class="mt-1 text-sm text-red-800">Tinjau rincian tiket dan catat tindak lanjutnya.</p>
                 </div>
             </div>
-            <button @click="activeTab = 'complaints'" class="px-4 py-2 rounded-2xl bg-white text-rose-950 font-black text-xs shadow-lg hover:bg-rose-50 transition shrink-0 cursor-pointer">
-                Lihat Daftar Tiket Keluhan &rarr;
-            </button>
+            @if(auth()->user()->role->value !== 'admin')
+                <button type="button" @click="activeTab = 'complaints'" class="btn-secondary min-h-touch w-full border-red-300 text-red-900 sm:w-auto">
+                    Lihat tiket keluhan
+                </button>
+            @endif
         </div>
     @endif
 
     <!-- 4 KPI Cards -->
-    <div class="gsap-reveal grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div class="surface-card rounded-3xl p-5 border-l-4 border-l-emerald-500">
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Total Surat Jalan</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-600">Total Surat Jalan</p>
             <div class="flex items-baseline justify-between mt-2">
                 <h3 class="font-display font-extrabold text-3xl text-slate-900">{{ $deliveries->count() }}</h3>
                 <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
@@ -53,7 +189,7 @@
         </div>
 
         <div class="surface-card rounded-3xl p-5 border-l-4 border-l-teal-500">
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Total Porsi Dimuat</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-600">Total Porsi Dimuat</p>
             <div class="flex items-baseline justify-between mt-2">
                 <h3 class="font-display font-extrabold text-3xl text-teal-700">{{ number_format($deliveries->sum('dispatched_portions')) }}</h3>
                 <span class="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full">Target 1.414</span>
@@ -65,7 +201,7 @@
             @php
                 $totalReceived = $deliveries->sum(fn($d) => $d->confirmation?->received_good_portions ?? 0);
             @endphp
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Diterima Layak (PIC)</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-600">Diterima Layak (PIC)</p>
             <div class="flex items-baseline justify-between mt-2">
                 <h3 class="font-display font-extrabold text-3xl text-slate-900">{{ number_format($totalReceived) }}</h3>
                 <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full">Uji Sensorik</span>
@@ -74,9 +210,9 @@
         </div>
 
         <div class="surface-card rounded-3xl p-5 border-l-4 border-l-rose-500 flex flex-col justify-between">
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Tiket Keluhan Digital</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-600">Tiket Keluhan Digital</p>
             <div class="flex items-baseline justify-between mt-2">
-                <h3 class="font-display font-extrabold text-3xl text-rose-600">{{ $complaintTickets->count() }}</h3>
+                <h3 class="font-display font-extrabold text-3xl text-rose-700">{{ $complaintTickets->count() }}</h3>
                 <span class="text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full">
                     {{ $complaintTickets->where('status', '!=', 'resolved')->count() }} Terbuka
                 </span>
@@ -86,39 +222,43 @@
     </div>
 
     <!-- TAB SWITCHER: MANIFES PENGIRIMAN VS TIKET KELUHAN -->
-    <div class="flex items-center justify-between border-b border-slate-200 mb-6">
-        <div class="flex gap-2">
+    <div class="distribution-tabs border-b border-slate-200 mb-6">
+        <div class="distribution-tab-list" role="group" aria-label="Pilih tampilan distribusi">
             <button
                 type="button"
+                :aria-pressed="activeTab === 'deliveries'"
+                aria-controls="distribution-panel-deliveries"
                 @click="activeTab = 'deliveries'"
-                :class="activeTab === 'deliveries' ? 'border-emerald-600 text-emerald-700 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-800'"
-                class="py-3 px-4 border-b-2 text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
+                :class="activeTab === 'deliveries' ? 'border-emerald-600 text-emerald-700 font-extrabold' : 'border-transparent text-slate-600 hover:text-slate-800'"
+                class="whitespace-nowrap py-3 px-4 border-b-2 text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
             >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
-                <span>Manifes Surat Jalan & Konfirmasi Sekolah ({{ $deliveries->count() }})</span>
+                <span>Surat Jalan & Penerimaan ({{ $deliveries->count() }})</span>
             </button>
             <button
                 type="button"
+                :aria-pressed="activeTab === 'complaints'"
+                aria-controls="distribution-panel-complaints"
                 @click="activeTab = 'complaints'"
-                :class="activeTab === 'complaints' ? 'border-rose-600 text-rose-700 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-800'"
-                class="py-3 px-4 border-b-2 text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
+                :class="activeTab === 'complaints' ? 'border-rose-600 text-rose-700 font-extrabold' : 'border-transparent text-slate-600 hover:text-slate-800'"
+                class="whitespace-nowrap py-3 px-4 border-b-2 text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
             >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span>Tiket Keluhan Digital ({{ $complaintTickets->count() }})</span>
+                <span>Keluhan Digital ({{ $complaintTickets->count() }})</span>
                 @if($complaintTickets->where('status', '!=', 'resolved')->count() > 0)
-                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                    <span class="w-2 h-2 rounded-full bg-red-600" aria-label="Ada keluhan terbuka"></span>
                 @endif
             </button>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="distribution-tab-actions">
             @if(in_array(auth()->user()->role->value, ['admin', 'tim_distribusi', 'asisten_lapangan']))
-                <button @click="openWaybillModal = true" class="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition cursor-pointer flex items-center gap-1.5">
+                <button @click="openModal('openWaybillModal', $event.currentTarget)" class="py-2 px-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow transition cursor-pointer flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     <span>Terbitkan Surat Jalan</span>
                 </button>
             @endif
-            <button @click="openComplaintModal = true" class="py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow transition cursor-pointer flex items-center gap-1.5">
+            <button @click="openModal('openComplaintModal', $event.currentTarget)" class="py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow transition cursor-pointer flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span>+ Buat Tiket Keluhan</span>
             </button>
@@ -126,13 +266,13 @@
     </div>
 
     <!-- ==================== TAB 1: MANIFES SURAT JALAN & KONFIRMASI SEKOLAH ==================== -->
-    <div x-show="activeTab === 'deliveries'" class="space-y-6">
+    <div id="distribution-panel-deliveries" x-show="activeTab === 'deliveries'" class="space-y-6" role="region" aria-label="Manifes surat jalan">
 
         <!-- 2 Grafik Distribusi -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div class="gsap-reveal lg:col-span-8 surface-card rounded-3xl p-6">
+            <div class="lg:col-span-8 surface-card rounded-3xl p-6">
                 <div class="mb-4">
-                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">Grafik Rekonsiliasi Porsi</span>
+                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">Grafik Rekonsiliasi Porsi</span>
                     <h3 class="font-display font-extrabold text-base text-slate-900 mt-1.5">Perbandingan Porsi Dikirim vs Diterima Baik per Mitra</h3>
                 </div>
                 <div class="h-64">
@@ -140,7 +280,7 @@
                 </div>
             </div>
 
-            <div class="gsap-reveal lg:col-span-4 surface-card rounded-3xl p-6">
+            <div class="lg:col-span-4 surface-card rounded-3xl p-6">
                 <div class="mb-4">
                     <span class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">Status Armada</span>
                     <h3 class="font-display font-extrabold text-base text-slate-900 mt-1.5">Proporsi Status Pengiriman</h3>
@@ -152,7 +292,7 @@
         </div>
 
         <!-- Filter & Search Bar -->
-        <div class="gsap-reveal surface-card rounded-3xl p-5">
+        <div class="surface-card rounded-3xl p-5">
             <form method="GET" action="{{ route('distribution.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
                 <div class="lg:col-span-4">
                     <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cari Surat Jalan / Plat / Sekolah</label>
@@ -183,7 +323,7 @@
                 </div>
 
                 <div class="lg:col-span-2 flex gap-2">
-                    <button type="submit" class="flex-1 py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
+                    <button type="submit" class="flex-1 py-2.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
@@ -207,13 +347,13 @@
         @else
             <div class="space-y-6">
                 @foreach($deliveries as $delivery)
-                    <div class="gsap-reveal surface-card rounded-3xl p-6 border border-slate-200/80 shadow-soft">
+                    <div id="delivery-{{ $delivery->id }}" tabindex="-1" class="surface-card rounded-3xl p-6 border border-slate-200/80 shadow-soft">
                         
                         <!-- Header Surat Jalan -->
                         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-100">
                             <div>
                                 <div class="flex flex-wrap items-center gap-2 mb-2">
-                                    <span class="font-mono font-extrabold text-xs px-3 py-1 rounded-xl bg-teal-50 text-teal-900 border border-teal-300 dark:bg-teal-950/40 dark:text-teal-200 dark:border-teal-700/50">{{ $delivery->waybill_number }}</span>
+                                    <span class="font-mono font-extrabold text-xs px-3 py-1 rounded-xl bg-teal-50 text-teal-900 border border-teal-300">{{ $delivery->waybill_number }}</span>
                                     <span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold font-mono">
                                         Armada: {{ $delivery->vehicle_plate_number }}
                                     </span>
@@ -224,13 +364,31 @@
                                         $dBadge = match($delivery->status) {
                                             'confirmed_clean' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
                                             'confirmed_with_issue' => 'bg-amber-100 text-amber-800 border-amber-200',
-                                            'in_transit' => 'bg-sky-100 text-sky-800 border-sky-200 animate-pulse',
+                                            'in_transit' => 'bg-sky-100 text-sky-800 border-sky-200',
                                             'arrived' => 'bg-teal-100 text-teal-800 border-teal-200',
                                             default => 'bg-slate-100 text-slate-800 border-slate-200',
                                         };
+                                        $deliveryStatusLabel = match($delivery->status) {
+                                            'preparing' => 'Persiapan',
+                                            'in_transit' => 'Dalam perjalanan',
+                                            'arrived' => 'Tiba',
+                                            'confirmed_clean' => 'Dikonfirmasi',
+                                            'confirmed_with_issue' => 'Dikonfirmasi dengan catatan',
+                                            default => ucfirst(str_replace('_', ' ', $delivery->status)),
+                                        };
+                                        $deliveryStatusIcon = match($delivery->status) {
+                                            'preparing' => 'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z',
+                                            'in_transit' => 'M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 17a1.5 1.5 0 103 0m7 0a1.5 1.5 0 103 0',
+                                            'arrived', 'confirmed_clean' => 'M5 12l4 4L19 6',
+                                            'confirmed_with_issue' => 'M12 9v4m0 4h.01m-8.5 2h17L12 3 3.5 19z',
+                                            default => 'M12 12h.01M12 8h.01M12 16h.01',
+                                        };
                                     @endphp
-                                    <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase border {{ $dBadge }}">
-                                        {{ str_replace('_', ' ', $delivery->status) }}
+                                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase border {{ $dBadge }}">
+                                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="{{ $deliveryStatusIcon }}"/>
+                                        </svg>
+                                        {{ $deliveryStatusLabel }}
                                     </span>
 
                                     <!-- Indikator Keterlambatan Waktu Tiba (> 10:30 WIB) -->
@@ -257,14 +415,14 @@
 
                             <div class="flex items-center gap-3">
                                 <div class="px-4 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-right">
-                                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Porsi Dikirim</span>
+                                    <span class="text-[10px] font-bold uppercase text-slate-600 block">Porsi Dikirim</span>
                                     <span class="font-display font-extrabold text-base text-slate-900">{{ number_format($delivery->dispatched_portions) }} Porsi</span>
                                 </div>
                                 @if(auth()->user()->role->value === 'admin')
                                     <form method="POST" action="{{ route('distribution.destroy', $delivery) }}" onsubmit="return confirm('Hapus surat jalan {{ $delivery->waybill_number }}?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 cursor-pointer">✕</button>
+                                        <button type="submit" aria-label="Hapus surat jalan {{ $delivery->waybill_number }}" class="min-w-touch p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 cursor-pointer">✕</button>
                                     </form>
                                 @endif
                             </div>
@@ -277,7 +435,7 @@
                             <div class="lg:col-span-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
                                 <p class="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-3 flex items-center justify-between">
                                     <span>1. Update Status Tim Distribusi</span>
-                                    <span class="text-[10px] font-normal text-slate-400">Armada</span>
+                                    <span class="text-[10px] font-normal text-slate-600">Armada</span>
                                 </p>
 
                                 @if(in_array(auth()->user()->role->value, ['admin', 'tim_distribusi', 'asisten_lapangan']))
@@ -307,9 +465,10 @@
 
                                         <div>
                                             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Foto Bukti Serah Terima / Surat Jalan (Maks 2MB)</label>
-                                            <input type="file" name="dispatch_photo" accept="image/*,.pdf" class="w-full text-xs text-slate-500">
+                                            <input type="file" name="dispatch_photo" accept="image/jpeg,image/png,.pdf" class="w-full text-xs text-slate-500">
+                                            <p class="mt-1 text-sm text-slate-500">Format JPG, PNG, atau PDF. Maksimal 2 MB.</p>
                                             @if($delivery->dispatch_photo_path)
-                                                <a href="{{ Storage::url($delivery->dispatch_photo_path) }}" class="text-[11px] text-emerald-600 font-bold hover:underline mt-1 inline-block">
+                                                <a href="{{ Storage::url($delivery->dispatch_photo_path) }}"                                                 class="text-[11px] text-emerald-700 font-bold hover:underline mt-1 inline-block">
                                                     → Lihat Bukti Foto Terunggah
                                                 </a>
                                             @endif
@@ -321,7 +480,7 @@
                                                    class="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs">
                                         </div>
 
-                                        <button type="submit" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-sm">
+                                        <button type="submit" class="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer shadow-sm">
                                             Perbarui Status Pengiriman
                                         </button>
                                     </form>
@@ -329,7 +488,7 @@
                                     <div class="text-xs text-slate-600 space-y-1.5">
                                         <p>Armada: <strong>{{ $delivery->vehicle_plate_number }}</strong></p>
                                         <p>Porsi Kirim: <strong>{{ $delivery->dispatched_portions }} Porsi</strong></p>
-                                        <p>Status: <span class="font-bold uppercase">{{ str_replace('_', ' ', $delivery->status) }}</span></p>
+                                        <p>Status: <span class="font-bold">{{ $deliveryStatusLabel }}</span></p>
                                         @if($delivery->dispatch_photo_path)
                                             <a href="{{ Storage::url($delivery->dispatch_photo_path) }}" class="text-emerald-700 font-bold hover:underline block">
                                                 → Lihat Berkas / Foto Surat Jalan
@@ -343,7 +502,7 @@
                             <div class="lg:col-span-7 p-4 rounded-2xl bg-white border border-slate-200/90">
                                 <p class="text-xs font-extrabold uppercase tracking-wider text-emerald-800 mb-3 flex items-center justify-between">
                                     <span>2. Konfirmasi Penerimaan & Uji Organoleptik Digital (Guru PIC)</span>
-                                    <span class="text-[10px] font-normal text-slate-400">Sensorik Pangan</span>
+                                    <span class="text-[10px] font-normal text-slate-600">Sensorik Pangan</span>
                                 </p>
 
                                 @if(in_array(auth()->user()->role->value, ['admin', 'guru_pic', 'asisten_lapangan']))
@@ -358,7 +517,7 @@
                                             <div>
                                                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Porsi Rusak / Kurang</label>
                                                 <input type="number" name="received_damaged_or_missing_portions" value="{{ $delivery->confirmation?->received_damaged_or_missing_portions ?? 0 }}" required min="0"
-                                                       class="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-rose-600">
+                                                       class="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-rose-700">
                                             </div>
                                             <div>
                                                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Suhu Tiba (°C)</label>
@@ -370,7 +529,7 @@
                                         <!-- 4 Parameter Uji Sensorik / Organoleptik -->
                                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                                             <div>
-                                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Uji Aroma</label>
+                                                <label class="block text-[10px] font-bold uppercase text-slate-600 mb-1">Uji Aroma</label>
                                                 <select name="aroma_test" class="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold">
                                                     <option value="normal_segar" {{ ($delivery->confirmation?->aroma_test ?? 'normal_segar') === 'normal_segar' ? 'selected' : '' }}>Normal Segar</option>
                                                     <option value="kurang_sedap" {{ ($delivery->confirmation?->aroma_test ?? '') === 'kurang_sedap' ? 'selected' : '' }}>Kurang Sedap</option>
@@ -378,7 +537,7 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Uji Rasa</label>
+                                                <label class="block text-[10px] font-bold uppercase text-slate-600 mb-1">Uji Rasa</label>
                                                 <select name="taste_test" class="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold">
                                                     <option value="normal_lezat" {{ ($delivery->confirmation?->taste_test ?? 'normal_lezat') === 'normal_lezat' ? 'selected' : '' }}>Normal Lezat</option>
                                                     <option value="hambar" {{ ($delivery->confirmation?->taste_test ?? '') === 'hambar' ? 'selected' : '' }}>Hambar</option>
@@ -386,7 +545,7 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Uji Visual/Warna</label>
+                                                <label class="block text-[10px] font-bold uppercase text-slate-600 mb-1">Uji Visual/Warna</label>
                                                 <select name="color_visual_test" class="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold">
                                                     <option value="cerah_normal" {{ ($delivery->confirmation?->color_visual_test ?? 'cerah_normal') === 'cerah_normal' ? 'selected' : '' }}>Cerah Normal</option>
                                                     <option value="pucat" {{ ($delivery->confirmation?->color_visual_test ?? '') === 'pucat' ? 'selected' : '' }}>Pucat</option>
@@ -394,7 +553,7 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Uji Tekstur</label>
+                                                <label class="block text-[10px] font-bold uppercase text-slate-600 mb-1">Uji Tekstur</label>
                                                 <select name="texture_test" class="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold">
                                                     <option value="baik_sesuai" {{ ($delivery->confirmation?->texture_test ?? 'baik_sesuai') === 'baik_sesuai' ? 'selected' : '' }}>Baik & Sesuai</option>
                                                     <option value="terlalu_keras_lembek" {{ ($delivery->confirmation?->texture_test ?? '') === 'terlalu_keras_lembek' ? 'selected' : '' }}>Keras / Lembek</option>
@@ -405,7 +564,7 @@
 
                                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-center">
                                             <div>
-                                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Tingkat Isu</label>
+                                                <label class="block text-[10px] font-bold uppercase text-slate-600 mb-1">Tingkat Isu</label>
                                                 <select name="complaint_severity" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold">
                                                     <option value="none" {{ ($delivery->confirmation?->complaint_severity ?? 'none') === 'none' ? 'selected' : '' }}>Tanpa Keluhan (Lulus)</option>
                                                     <option value="low" {{ ($delivery->confirmation?->complaint_severity ?? '') === 'low' ? 'selected' : '' }}>Keluhan Ringan</option>
@@ -414,13 +573,13 @@
                                                 </select>
                                             </div>
                                             <div class="sm:col-span-2">
-                                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Catatan Konfirmasi Penerima</label>
+                                                <label class="block text-[10px] font-bold uppercase text-slate-600 mb-1">Catatan Konfirmasi Penerima</label>
                                                 <input type="text" name="feedback_or_complaint" value="{{ $delivery->confirmation?->feedback_or_complaint }}" placeholder="Makanan diterima dalam kondisi hangat & baik..."
                                                        class="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                                             </div>
                                         </div>
 
-                                        <button type="submit" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition cursor-pointer">
+                                        <button type="submit" class="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow transition cursor-pointer">
                                             Simpan Konfirmasi Penerimaan & Uji Organoleptik
                                         </button>
                                     </form>
@@ -447,14 +606,14 @@
     </div>
 
     <!-- ==================== TAB 2: TIKET KELUHAN DIGITAL (FITUR 7) ==================== -->
-    <div x-show="activeTab === 'complaints'" class="space-y-6">
+    <div id="distribution-panel-complaints" x-show="activeTab === 'complaints'" class="space-y-6" role="region" aria-label="Tiket keluhan digital">
         <div class="surface-card rounded-3xl p-6 border border-slate-200/80 shadow-soft">
             <div class="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-100">
                 <div>
                     <h3 class="font-display font-extrabold text-lg text-slate-900">Manajemen Tiket Keluhan & Pelaporan Masalah Sekolah</h3>
                     <p class="text-xs text-slate-500">Penanganan keluhan berstandar SOP BGN: Nomor tiket otomatis, bukti foto & audit penyelesaian</p>
                 </div>
-                <button @click="openComplaintModal = true" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow transition cursor-pointer flex items-center gap-1.5">
+                <button @click="openModal('openComplaintModal', $event.currentTarget)" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow transition cursor-pointer flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     <span>+ Buat Tiket Keluhan Baru</span>
                 </button>
@@ -462,7 +621,7 @@
 
             @if($complaintTickets->isEmpty())
                 <div class="text-center py-12 text-slate-500 text-xs">
-                    <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-500">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                     <p class="font-bold text-slate-800 text-sm">Nihil Tiket Keluhan Aktif</p>
@@ -472,7 +631,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead>
-                            <tr class="border-b border-slate-200 text-[10px] font-extrabold uppercase text-slate-400">
+                            <tr class="border-b border-slate-200 text-[10px] font-extrabold uppercase text-slate-600">
                                 <th class="py-3 px-3">Nomor Tiket</th>
                                 <th class="py-3 px-3">Sekolah / Mitra</th>
                                 <th class="py-3 px-3">Kategori Masalah</th>
@@ -489,18 +648,40 @@
                                     <td class="py-3.5 px-3 font-mono font-bold text-slate-900">{{ $tkt->ticket_number }}</td>
                                     <td class="py-3.5 px-3">
                                         <p class="font-bold text-slate-900">{{ $tkt->institution->name }}</p>
-                                        <span class="text-[10px] text-slate-400">Pelapor: {{ $tkt->reporter->name ?? 'Guru PIC' }}</span>
+                                        <span class="text-[10px] text-slate-600">Pelapor: {{ $tkt->reporter->name ?? 'Guru PIC' }}</span>
                                     </td>
                                     <td class="py-3.5 px-3 font-semibold text-slate-800">{{ $tkt->categoryLabel() }}</td>
                                     <td class="py-3.5 px-3">
-                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase border {{ $tkt->severityBadge() }}">
-                                            {{ $tkt->severity }}
+                                        @php
+                                            [$severityClass, $severityIcon, $severityLabel] = match($tkt->severity) {
+                                                'kritis' => [
+                                                    'bg-rose-100 text-rose-800 border-rose-200',
+                                                    'M12 9v4m0 4h.01m-8.5 2h17L12 3 3.5 19z',
+                                                    'Kritis',
+                                                ],
+                                                'sedang' => [
+                                                    'bg-amber-100 text-amber-800 border-amber-200',
+                                                    'M12 8v4m0 4h.01m7.938 4H4.062c-1.54 0-2.502-1.667-1.732-3L10.268 4c.77-1.333 2.694-1.333 3.464 0l7.938 13c.77 1.333-.192 3-1.732 3z',
+                                                    'Sedang',
+                                                ],
+                                                default => [
+                                                    'bg-sky-100 text-sky-800 border-sky-200',
+                                                    'M12 16v-4m0-4h.01m9.99 4a10 10 0 11-20 0 10 10 0 0120 0z',
+                                                    'Rendah',
+                                                ],
+                                            };
+                                        @endphp
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase border {{ $severityClass }}">
+                                            <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="{{ $severityIcon }}"/>
+                                            </svg>
+                                            {{ $severityLabel }}
                                         </span>
                                     </td>
                                     <td class="py-3.5 px-3 max-w-xs text-slate-600">
                                         <p class="line-clamp-2">{{ $tkt->description }}</p>
                                         @if($tkt->photo_path)
-                                            <a href="{{ Storage::url($tkt->photo_path) }}" class="text-[10px] text-rose-600 font-bold hover:underline mt-0.5 block">
+                                            <a href="{{ Storage::url($tkt->photo_path) }}" class="text-[10px] text-rose-700 font-bold hover:underline mt-0.5 block">
                                                 → Foto Bukti Keluhan
                                             </a>
                                         @endif
@@ -508,29 +689,43 @@
                                     <td class="py-3.5 px-3">
                                         @php
                                             $stClass = match($tkt->status) {
-                                                'resolved' => 'bg-emerald-100 text-emerald-800',
-                                                'in_progress' => 'bg-amber-100 text-amber-800',
-                                                default => 'bg-rose-100 text-rose-800',
+                                                'resolved' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                                                'in_progress' => 'bg-amber-100 text-amber-800 border-amber-200',
+                                                default => 'bg-rose-100 text-rose-800 border-rose-200',
+                                            };
+                                            $complaintStatusLabel = match($tkt->status) {
+                                                'open' => 'Terbuka',
+                                                'in_progress' => 'Dalam penanganan',
+                                                'resolved' => 'Selesai',
+                                                default => ucfirst(str_replace('_', ' ', $tkt->status)),
+                                            };
+                                            $complaintStatusIcon = match($tkt->status) {
+                                                'resolved' => 'M5 12l4 4L19 6',
+                                                'in_progress' => 'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z',
+                                                default => 'M12 9v4m0 4h.01m-8.5 2h17L12 3 3.5 19z',
                                             };
                                         @endphp
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $stClass }}">
-                                            {{ str_replace('_', ' ', $tkt->status) }}
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold uppercase border {{ $stClass }}">
+                                            <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="{{ $complaintStatusIcon }}"/>
+                                            </svg>
+                                            {{ $complaintStatusLabel }}
                                         </span>
                                     </td>
                                     <td class="py-3.5 px-3 max-w-xs">
                                         @if($tkt->resolution_notes)
                                             <p class="text-[11px] text-slate-800 font-medium">{{ $tkt->resolution_notes }}</p>
-                                            <span class="text-[10px] text-slate-400">Oleh: {{ $tkt->resolver->name ?? 'Aslap' }}</span>
+                                            <span class="text-[10px] text-slate-600">Oleh: {{ $tkt->resolver->name ?? 'Aslap' }}</span>
                                         @else
-                                            <span class="text-slate-400 italic">Belum ditangani</span>
+                                            <span class="text-slate-600 italic">Belum ditangani</span>
                                         @endif
                                     </td>
                                     <td class="py-3.5 px-3 text-right">
-                                        @if(in_array(auth()->user()->role->value, ['admin', 'asisten_lapangan', 'kepala_dapur']))
+                                        @if(in_array(auth()->user()->role->value, ['asisten_lapangan', 'kepala_dapur']))
                                             <button
                                                 type="button"
-                                                @click="openResolve({{ $tkt->id }}, '{{ $tkt->ticket_number }}', '{{ addslashes($tkt->institution->name) }}')"
-                                                class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs cursor-pointer shadow-sm transition"
+                                                @click="openResolve({{ $tkt->id }}, '{{ $tkt->ticket_number }}', '{{ addslashes($tkt->institution->name) }}', $event.currentTarget)"
+                                                class="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs cursor-pointer shadow-sm transition"
                                             >
                                                 Tindak Lanjuti
                                             </button>
@@ -547,11 +742,11 @@
 
     <!-- MODAL 1: TERBITKAN SURAT JALAN BARU -->
     <template x-teleport="body">
-        <div x-show="openWaybillModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-            <div @click.away="openWaybillModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto">
+        <div x-show="openWaybillModal" x-cloak class="distribution-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+            <div x-ref="openWaybillModalDialog" data-modal-name="openWaybillModal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="waybill-modal-title" @keydown="trapModalFocus($event)" @click.away="closeModal('openWaybillModal')" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                    <h3 class="font-display font-extrabold text-base text-slate-900">Terbitkan Surat Jalan Baru</h3>
-                    <button @click="openWaybillModal = false" class="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 cursor-pointer">✕</button>
+                    <h3 id="waybill-modal-title" class="font-display font-extrabold text-base text-slate-900">Terbitkan Surat Jalan Baru</h3>
+                    <button type="button" @click="closeModal('openWaybillModal')" aria-label="Tutup formulir surat jalan" class="min-w-touch p-1.5 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer">✕</button>
                 </div>
 
                 <form method="POST" action="{{ route('distribution.store') }}" class="space-y-3.5">
@@ -559,19 +754,19 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Surat Jalan</label>
-                            <input type="text" name="waybill_number" required value="SJ/MBG-SS1/{{ now()->format('Ymd') }}/{{ rand(100,999) }}"
+                            <input type="text" name="waybill_number" aria-label="Nomor Surat Jalan" required value="SJ/MBG-SS1/{{ now()->format('Ymd') }}/{{ rand(100,999) }}"
                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">No. Polisi Armada</label>
-                            <input type="text" name="vehicle_plate_number" required value="BG 8122 KL"
+                            <input type="text" name="vehicle_plate_number" aria-label="Nomor Polisi Armada" required value="BG 8122 KL"
                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Sesi Produksi Dapur</label>
-                        <select name="production_run_id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <select name="production_run_id" aria-label="Pilih Sesi Produksi Dapur" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                             @foreach($productionRuns as $run)
                                 <option value="{{ $run->id }}">{{ $run->dailyMenu?->menu_code }} — {{ $run->dailyMenu?->menu_name }}</option>
                             @endforeach
@@ -580,7 +775,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Tujuan Mitra (7 Titik Wilayah Kalidoni)</label>
-                        <select name="beneficiary_institution_id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <select name="beneficiary_institution_id" aria-label="Tujuan Mitra" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                             @foreach($institutions as $inst)
                                 <option value="{{ $inst->id }}">{{ $inst->code }} — {{ $inst->name }} (Kuota: {{ $inst->default_quota }} Porsi)</option>
                             @endforeach
@@ -590,24 +785,24 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kuota Alokasi Porsi</label>
-                            <input type="number" name="allocated_portions" required value="260"
+                            <input type="number" name="allocated_portions" aria-label="Kuota Alokasi Porsi" required value="260"
                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Porsi Aktual Dimuat</label>
-                            <input type="number" name="dispatched_portions" required value="260"
+                            <input type="number" name="dispatched_portions" aria-label="Porsi Aktual Dimuat" required value="260"
                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Khusus Pengantaran</label>
-                        <input type="text" name="courier_notes" placeholder="Contoh: Rute Mayor Zen, container bersegel..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                        <input type="text" name="courier_notes" aria-label="Catatan Khusus Pengantaran" placeholder="Contoh: Rute Mayor Zen, container bersegel..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
                     </div>
 
                     <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                        <button type="button" @click="openWaybillModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer shadow">Terbitkan Surat Jalan</button>
+                        <button type="button" @click="closeModal('openWaybillModal')" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">Batal</button>
+                        <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer shadow">Terbitkan Surat Jalan</button>
                     </div>
                 </form>
             </div>
@@ -616,21 +811,21 @@
 
     <!-- MODAL 2: BUAT TIKET KELUHAN BARU (GURU PIC / SEKOLAH) -->
     <template x-teleport="body">
-        <div x-show="openComplaintModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-            <div @click.away="openComplaintModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto">
+        <div x-show="openComplaintModal" x-cloak class="distribution-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+            <div x-ref="openComplaintModalDialog" data-modal-name="openComplaintModal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="complaint-modal-title" @keydown="trapModalFocus($event)" @click.away="closeModal('openComplaintModal')" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                     <div>
-                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-rose-600">Pelaporan Resmi Sekolah</span>
-                        <h3 class="font-display font-extrabold text-base text-slate-900">Buat Tiket Keluhan MBG Baru</h3>
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-rose-700">Pelaporan Resmi Sekolah</span>
+                        <h3 id="complaint-modal-title" class="font-display font-extrabold text-base text-slate-900">Buat Tiket Keluhan MBG Baru</h3>
                     </div>
-                    <button @click="openComplaintModal = false" class="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 cursor-pointer">✕</button>
+                    <button type="button" @click="closeModal('openComplaintModal')" aria-label="Tutup formulir keluhan" class="min-w-touch p-1.5 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer">✕</button>
                 </div>
 
                 <form method="POST" action="{{ route('complaints.store') }}" enctype="multipart/form-data" class="space-y-3.5">
                     @csrf
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Sekolah / Posyandu Pelapor</label>
-                        <select name="beneficiary_institution_id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
+                        <select name="beneficiary_institution_id" aria-label="Sekolah / Posyandu Pelapor" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
                             @foreach($institutions as $inst)
                                 <option value="{{ $inst->id }}">{{ $inst->name }} ({{ $inst->code }})</option>
                             @endforeach
@@ -640,7 +835,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kategori Keluhan</label>
-                            <select name="category" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
+                            <select name="category" aria-label="Kategori Keluhan" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
                                 <option value="porsi_kurang">Kekurangan Porsi / Tidak Cukup</option>
                                 <option value="ompreng_rusak">Ompreng Rusak / Tutup Pecah</option>
                                 <option value="keterlambatan">Keterlambatan Jam Tiba (&gt;10:30)</option>
@@ -651,7 +846,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Tingkat Keparahan</label>
-                            <select name="severity" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
+                            <select name="severity" aria-label="Tingkat Keparahan" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
                                 <option value="rendah">Rendah (Pemberitahuan)</option>
                                 <option value="sedang">Sedang (Perlu Pergantian)</option>
                                 <option value="kritis">KRITIS (Pemicu Notifikasi Darurat)</option>
@@ -661,17 +856,18 @@
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Deskripsi Rinci Kendala Lapangan</label>
-                        <textarea name="description" rows="3" required placeholder="Jelaskan secara spesifik temuan, jumlah porsi terdampak, dsb..."
+                        <textarea name="description" aria-label="Deskripsi Rinci Kendala Lapangan" rows="3" required placeholder="Jelaskan secara spesifik temuan, jumlah porsi terdampak, dsb..."
                                   class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"></textarea>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Foto Bukti Keluhan (Maks 2MB)</label>
-                        <input type="file" name="photo" accept="image/*" class="w-full text-xs text-slate-500">
+                        <input type="file" name="photo" aria-label="Foto Bukti Keluhan (Opsional)" accept="image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500">
+                        <p class="mt-1 text-sm text-slate-500">Format JPG, PNG, atau WebP. Maksimal 2 MB.</p>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                        <button type="button" @click="openComplaintModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">Batal</button>
+                        <button type="button" @click="closeModal('openComplaintModal')" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">Batal</button>
                         <button type="submit" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer shadow">Kirim Tiket Keluhan</button>
                     </div>
                 </form>
@@ -681,14 +877,14 @@
 
     <!-- MODAL 3: TINDAK LANJUTI TIKET KELUHAN (ASLAP / KEPALA DAPUR) -->
     <template x-teleport="body">
-        <div x-show="openResolveModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-            <div @click.away="openResolveModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto">
+        <div x-show="openResolveModal" x-cloak class="distribution-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+            <div x-ref="openResolveModalDialog" data-modal-name="openResolveModal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="resolve-modal-title" @keydown="trapModalFocus($event)" @click.away="closeModal('openResolveModal')" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Tindak Lanjut Aslap & Kepala Dapur</span>
-                        <h3 class="font-display font-extrabold text-base text-slate-900">Penyelesaian Tiket Keluhan</h3>
+                        <h3 id="resolve-modal-title" class="font-display font-extrabold text-base text-slate-900">Penyelesaian Tiket Keluhan</h3>
                     </div>
-                    <button @click="openResolveModal = false" class="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 cursor-pointer">✕</button>
+                    <button type="button" @click="closeModal('openResolveModal')" aria-label="Tutup dialog penyelesaian keluhan" class="min-w-touch p-1.5 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer">✕</button>
                 </div>
 
                 <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 mb-4 text-xs">
@@ -700,7 +896,7 @@
                     @csrf
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Status Penanganan</label>
-                        <select name="status" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
+                        <select name="status" aria-label="Status Penanganan" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800">
                             <option value="in_progress">Dalam Proses Tindak Lanjut</option>
                             <option value="resolved">SELESAI / RESOLVED (Masalah Tuntas)</option>
                         </select>
@@ -708,18 +904,19 @@
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Tindakan Penyelesaian yang Dilakukan</label>
-                        <textarea name="resolution_notes" rows="3" required placeholder="Contoh: Mengirimkan ompreng cadangan steril, mengecek driver rute..."
+                        <textarea name="resolution_notes" aria-label="Tindakan Penyelesaian yang Dilakukan" rows="3" required placeholder="Contoh: Mengirimkan ompreng cadangan steril, mengecek driver rute..."
                                   class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"></textarea>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Foto Bukti Penyelesaian (Opsional, Maks 2MB)</label>
-                        <input type="file" name="resolution_photo" accept="image/*" class="w-full text-xs text-slate-500">
+                        <input type="file" name="resolution_photo" aria-label="Foto Bukti Penyelesaian (Opsional)" accept="image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500">
+                        <p class="mt-1 text-sm text-slate-500">Format JPG, PNG, atau WebP. Maksimal 2 MB.</p>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                        <button type="button" @click="openResolveModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-sm transition">Simpan Penyelesaian</button>
+                        <button type="button" @click="closeModal('openResolveModal')" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">Batal</button>
+                        <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer shadow-sm transition">Simpan Penyelesaian</button>
                     </div>
                 </form>
             </div>

@@ -5,7 +5,7 @@
 @section('page_subtitle', 'Audit titik kritis suhu masak inti (≥75°C), holding (≥60°C), pra-distribusi, dan retensi bank sampel 48 jam')
 
 @section('content')
-<div x-data="{
+<div class="quality-control-page" x-data="{
     activeTab: 'all', // 'all', 'form', 'history', 'charts'
     coreTemp: 82.5,
     holdTemp: 66.0,
@@ -15,6 +15,54 @@
     organolepticSample: true,
     openResolveModal: false,
     selectedQc: null,
+    modalTrigger: null,
+
+    openModal(name, trigger) {
+        this.modalTrigger = trigger;
+        this[name] = true;
+        this.$nextTick(() => this.focusModal(name));
+    },
+    focusModal(name) {
+        const dialog = this.$refs[`${name}Dialog`];
+        if (!dialog) return;
+        const focusable = [...dialog.querySelectorAll('input, select, textarea, button, a[href], [tabindex]')]
+            .filter(element => !element.disabled && element.tabIndex >= 0 && (element.tagName !== 'INPUT' || element.type !== 'hidden') && element.getClientRects().length > 0);
+        (focusable.find(element => !element.matches('button')) || focusable[0] || dialog).focus();
+    },
+    closeModal(name) {
+        this[name] = false;
+        const trigger = this.modalTrigger;
+        this.$nextTick(() => {
+            if (trigger?.isConnected) trigger.focus();
+            this.modalTrigger = null;
+        });
+    },
+    trapModalFocus(event) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            this.closeModal(event.currentTarget.dataset.modalName);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const dialog = event.currentTarget;
+        const focusable = [...dialog.querySelectorAll('input, select, textarea, button, a[href], [tabindex]')]
+            .filter(element => !element.disabled && element.tabIndex >= 0 && (element.tagName !== 'INPUT' || element.type !== 'hidden') && element.getClientRects().length > 0);
+        if (focusable.length === 0) {
+            event.preventDefault();
+            dialog.focus();
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+            event.preventDefault();
+            first.focus();
+        }
+    },
 
     get coreTempStatus() {
         if (this.coreTemp >= 75) return { label: 'Lolos Standar HACCP BGN (≥75°C)', class: 'bg-emerald-50 text-emerald-700 border-emerald-200', safe: true };
@@ -31,17 +79,37 @@
         return { label: 'Perlu Dihangatkan Sebelum Masuk Box', class: 'bg-amber-50 text-amber-700 border-amber-200', safe: false };
     },
 
-    openResolve(qc) {
+    openResolve(qc, trigger) {
         this.selectedQc = qc;
-        this.openResolveModal = true;
+        this.openModal('openResolveModal', trigger);
     }
 }">
+    <style>
+        .quality-control-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        .quality-control-page select,
+        .quality-control-page textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .quality-control-page button {
+            min-height: 44px;
+        }
+
+        .quality-control-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+        .quality-control-modal select,
+        .quality-control-modal textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .quality-control-modal button {
+            min-height: 44px;
+        }
+    </style>
 
     <!-- Hero Banner Audit Suhu & Keamanan Pangan -->
-    <div class="gsap-reveal relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#06204D] via-[#092B66] to-[#041432] text-white p-6 lg:p-8 mb-6 shadow-xl border border-teal-500/20">
-        <div class="ambient-orb w-72 h-72 bg-teal-500/20 -top-20 -right-10"></div>
-        <div class="ambient-orb w-56 h-56 bg-amber-400/15 bottom-0 left-1/3" style="animation-delay: -5s;"></div>
-
+    <div class="relative rounded-3xl overflow-hidden bg-[#06204D] text-white p-6 lg:p-8 mb-6 shadow-sm border border-slate-200">
         <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div>
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/15 border border-teal-400/30 text-teal-300 text-[11px] font-bold uppercase tracking-widest mb-3">
@@ -58,7 +126,7 @@
 
             <div class="flex flex-wrap items-center gap-3 shrink-0">
                 <a href="{{ route('apd-inspection.index') }}"
-                   class="px-4 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 font-bold text-xs flex items-center gap-2 transition shadow-sm">
+                   class="min-h-touch px-4 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 font-bold text-xs flex items-center gap-2 transition shadow-sm">
                     <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
@@ -69,20 +137,20 @@
 
         <!-- 4 KPI Strip Khusus Suhu -->
         <div class="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-white/10">
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-teal-300/80">Total Audit Suhu</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $inspections->count() }} <span class="text-xs font-normal text-slate-300">Batch Produksi</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-300/80">Rata-Rata Suhu Masak</p>
                 <p class="font-display font-extrabold text-2xl text-emerald-300 mt-1">{{ $avgCookingTemp }}°C <span class="text-xs font-normal text-slate-300">Standar ≥ 75°C</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-amber-300/80">Rata-Rata Suhu Holding</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $avgHoldingTemp }}°C <span class="text-xs font-normal text-slate-300">Standar ≥ 60°C</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
-                <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-300/80">Bank Sampel Chiller</p>
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-200">Bank Sampel Chiller</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $foodBankCount }} <span class="text-xs font-normal text-slate-300">Sampel 48 Jam</span></p>
             </div>
         </div>
@@ -97,12 +165,12 @@
                 Tampilkan Semua Panel
             </button>
             <button @click="activeTab = 'form'"
-                    :class="activeTab === 'form' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    :class="activeTab === 'form' ? 'bg-teal-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 + Form Input Pemeriksaan Suhu
             </button>
             <button @click="activeTab = 'history'"
-                    :class="activeTab === 'history' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    :class="activeTab === 'history' ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Riwayat Audit Suhu & Bank Sampel ({{ $inspections->count() }})
             </button>
@@ -114,7 +182,7 @@
         </div>
 
         @if($search !== '' || $verdict !== 'all' || $dateFrom || $dateTo)
-            <a href="{{ route('quality-control.index') }}" class="px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition">
+            <a href="{{ route('quality-control.index') }}" class="min-h-touch inline-flex items-center px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition">
                 Reset Filter Aktif
             </a>
         @endif
@@ -128,7 +196,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
-                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-teal-600">Formulir Audit Termal HACCP</span>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-teal-700">Formulir Audit Termal HACCP</span>
                 </div>
                 <h3 class="font-display font-extrabold text-xl text-slate-900 mt-1">Input Pemeriksaan Suhu Kritis & Bank Sampel Makanan</h3>
                 <p class="text-xs text-slate-500">Formulir resmi Ahli Gizi untuk mencatat suhu masak inti, suhu holding wadah saji, dan suhu pra-distribusi sebelum muat.</p>
@@ -161,7 +229,7 @@
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Kode Label Bank Sampel Makanan</label>
                         <input type="text" name="food_sample_code" required value="SMP-SS1-{{ now()->format('Ymd') }}-A"
                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs font-mono font-bold text-slate-900 focus:border-teal-500 focus:outline-none bg-white">
-                        <p class="text-[11px] text-slate-400 mt-1">Label arsip bertiket pada chiller khusus penyimpanan 2x24 jam</p>
+                        <p class="text-[11px] text-slate-600 mt-1">Label arsip bertiket pada chiller khusus penyimpanan 2x24 jam</p>
                     </div>
                 </div>
 
@@ -178,7 +246,7 @@
                                         <span class="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-sm font-bold shrink-0">🌡️</span>
                                         <div>
                                             <h5 class="text-xs font-bold text-slate-900">1. Suhu Masak Inti</h5>
-                                            <p class="text-[10px] text-slate-400">Titik pusat daging/protein</p>
+                                            <p class="text-[10px] text-slate-600">Titik pusat daging/protein</p>
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-1">
@@ -203,7 +271,7 @@
                                         <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold shrink-0">🔥</span>
                                         <div>
                                             <h5 class="text-xs font-bold text-slate-900">2. Suhu Holding Panas</h5>
-                                            <p class="text-[10px] text-slate-400">Wadah penyimpanan saji</p>
+                                            <p class="text-[10px] text-slate-600">Wadah penyimpanan saji</p>
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-1">
@@ -228,7 +296,7 @@
                                         <span class="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-bold shrink-0">🚚</span>
                                         <div>
                                             <h5 class="text-xs font-bold text-slate-900">3. Suhu Pra-Distribusi</h5>
-                                            <p class="text-[10px] text-slate-400">Sebelum muat ke armada</p>
+                                            <p class="text-[10px] text-slate-600">Sebelum muat ke armada</p>
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-1">
@@ -297,7 +365,7 @@
                 </div>
 
                 <div class="flex justify-end pt-2">
-                    <button type="submit" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs shadow-lg shadow-teal-600/30 transition cursor-pointer flex items-center gap-2">
+                    <button type="submit" class="px-6 py-3.5 rounded-2xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs transition cursor-pointer flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                         </svg>
@@ -316,7 +384,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600">Log Pemeriksaan Termal</span>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-700">Log Pemeriksaan Termal</span>
                 </div>
                 <h3 class="font-display font-extrabold text-xl text-slate-900 mt-1">Riwayat Audit Suhu & Bank Sampel Makanan</h3>
                 <p class="text-xs text-slate-500">Rekam jejak suhu masak, holding, dan pengarsipan chiller 48 jam di SPPG Sungai Selayur 1.</p>
@@ -349,14 +417,14 @@
             </div>
 
             <div class="lg:col-span-3 flex gap-2">
-                <button type="submit" class="flex-1 py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center justify-center gap-1.5">
+                <button type="submit" class="flex-1 py-2.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center justify-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                     Terapkan Filter
                 </button>
                 @if($search !== '' || $verdict !== 'all' || $dateFrom || $dateTo)
-                    <a href="{{ route('quality-control.index') }}" class="py-2.5 px-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs hover:bg-rose-100 transition">
+                    <a href="{{ route('quality-control.index') }}" class="min-h-touch inline-flex items-center py-2.5 px-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs hover:bg-rose-100 transition">
                         Reset
                     </a>
                 @endif
@@ -378,12 +446,13 @@
                                     {{ $qc->food_sample_code }}
                                 </span>
                                 <h4 class="font-bold text-sm text-slate-900">{{ $qc->productionRun?->dailyMenu?->menu_name }}</h4>
-                                <span class="text-xs text-slate-400">({{ $qc->productionRun?->dailyMenu?->menu_code }})</span>
+                                <span class="text-xs text-slate-600">({{ $qc->productionRun?->dailyMenu?->menu_code }})</span>
                             </div>
 
                             <div class="flex items-center gap-2">
-                                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase {{ $qc->qc_verdict === 'passed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
-                                    {{ strtoupper(str_replace('_', ' ', $qc->qc_verdict)) }}
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-extrabold {{ $qc->qc_verdict === 'passed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200' }}">
+                                    <span aria-hidden="true">{{ $qc->qc_verdict === 'passed' ? '✓' : '!' }}</span>
+                                    {{ $qc->qc_verdict === 'passed' ? 'Lolos' : 'Perlu Tindak Lanjut' }}
                                 </span>
                             </div>
                         </div>
@@ -392,30 +461,33 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
                             <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
                                 <div>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Suhu Masak Inti</span>
-                                    <span class="font-mono font-extrabold text-base text-rose-600">{{ $qc->cooking_core_temp_c }}°C</span>
+                                    <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">Suhu Masak Inti</span>
+                                    <span class="font-mono font-extrabold text-base text-rose-700">{{ $qc->cooking_core_temp_c }}°C</span>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $qc->cooking_core_temp_c >= 75 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200' }}">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $qc->cooking_core_temp_c >= 75 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200' }}">
+                                    <span aria-hidden="true">{{ $qc->cooking_core_temp_c >= 75 ? '✓' : '!' }}</span>
                                     {{ $qc->cooking_core_temp_c >= 75 ? 'Lolos (≥75°C)' : 'Bahaya (<75°C)' }}
                                 </span>
                             </div>
 
                             <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
                                 <div>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Suhu Holding Panas</span>
-                                    <span class="font-mono font-extrabold text-base text-amber-600">{{ $qc->holding_temp_c }}°C</span>
+                                    <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">Suhu Holding Panas</span>
+                                    <span class="font-mono font-extrabold text-base text-amber-700">{{ $qc->holding_temp_c }}°C</span>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $qc->holding_temp_c >= 60 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200' }}">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $qc->holding_temp_c >= 60 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200' }}">
+                                    <span aria-hidden="true">{{ $qc->holding_temp_c >= 60 ? '✓' : '!' }}</span>
                                     {{ $qc->holding_temp_c >= 60 ? 'Aman (≥60°C)' : 'Dingin (<60°C)' }}
                                 </span>
                             </div>
 
                             <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
                                 <div>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Suhu Pra-Distribusi</span>
-                                    <span class="font-mono font-extrabold text-base text-teal-600">{{ $qc->pre_dispatch_temp_c }}°C</span>
+                                    <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">Suhu Pra-Distribusi</span>
+                                    <span class="font-mono font-extrabold text-base text-teal-700">{{ $qc->pre_dispatch_temp_c }}°C</span>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $qc->pre_dispatch_temp_c >= 60 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200' }}">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $qc->pre_dispatch_temp_c >= 60 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200' }}">
+                                    <span aria-hidden="true">{{ $qc->pre_dispatch_temp_c >= 60 ? '✓' : '!' }}</span>
                                     {{ $qc->pre_dispatch_temp_c >= 60 ? 'Siap Muat (≥60°C)' : 'Kurang Hangat' }}
                                 </span>
                             </div>
@@ -435,13 +507,13 @@
                                 @endif
                             </div>
 
-                            <div class="flex items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
                                 @if($qc->corrective_action)
-                                    <span class="text-[11px] text-slate-600 italic max-w-md truncate">"{{ $qc->corrective_action }}"</span>
+                                    <span class="text-[11px] text-slate-600 italic min-w-0 max-w-full truncate">"{{ $qc->corrective_action }}"</span>
                                 @endif
 
                                 @if($qc->qc_verdict !== 'passed' && in_array(auth()->user()->role->value, ['admin', 'kepala_dapur']))
-                                    <button @click="openResolve({{ Js::from($qc) }})" class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs transition cursor-pointer">
+                                    <button @click="openResolve({{ Js::from($qc) }}, $event.currentTarget)" class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs transition cursor-pointer">
                                         Tindak Lanjut Ka. Dapur
                                     </button>
                                 @endif
@@ -477,46 +549,46 @@
                 <div class="h-56 flex items-center justify-center">
                     <canvas id="qcVerdictChart"></canvas>
                 </div>
-                <p class="text-[11px] text-slate-400 text-center mt-2">Berdasarkan hasil uji suhu & keamanan pangan</p>
+                <p class="text-[11px] text-slate-600 text-center mt-2">Berdasarkan hasil uji suhu & keamanan pangan</p>
             </div>
         </div>
     </div>
 
     <!-- MODAL TINDAK LANJUT KEPALA DAPUR -->
     <template x-teleport="body">
-        <div x-show="openResolveModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-            <div @click.away="openResolveModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-auto">
+        <div x-show="openResolveModal" x-cloak class="quality-control-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
+            <div x-ref="openResolveModalDialog" data-modal-name="openResolveModal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="quality-resolution-modal-title" @keydown="trapModalFocus($event)" @click.away="closeModal('openResolveModal')" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
-                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Otoritas Kepala Dapur</span>
-                        <h3 class="font-display font-extrabold text-base text-slate-900">Tindak Lanjut Temuan Suhu QC</h3>
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-700">Otoritas Kepala Dapur</span>
+                        <h3 id="quality-resolution-modal-title" class="font-display font-extrabold text-base text-slate-900">Tindak Lanjut Temuan Suhu QC</h3>
                     </div>
-                    <button @click="openResolveModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="closeModal('openResolveModal')" aria-label="Tutup dialog tindak lanjut suhu" class="min-w-touch p-2 rounded-xl text-slate-600 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" :action="'{{ url('/quality-control') }}/' + (selectedQc ? selectedQc.id : '') + '/resolve'" class="space-y-4">
                     @csrf
                     <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
                         <p class="text-slate-500">Kode Sampel: <strong class="text-slate-900" x-text="selectedQc ? selectedQc.food_sample_code : ''"></strong></p>
-                        <p class="text-slate-500">Suhu Masak Inti: <strong class="text-rose-600" x-text="(selectedQc ? selectedQc.cooking_core_temp_c : '') + '°C'"></strong></p>
+                        <p class="text-slate-500">Suhu Masak Inti: <strong class="text-rose-700" x-text="(selectedQc ? selectedQc.cooking_core_temp_c : '') + '°C'"></strong></p>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Tindakan Korektif</label>
-                        <textarea name="corrective_action" rows="3" required placeholder="Cth: Dilakukan pemanasan ulang combi steamer selama 10 menit..."
+                        <textarea name="corrective_action" aria-label="Catatan Tindakan Korektif" rows="3" required placeholder="Cth: Dilakukan pemanasan ulang combi steamer selama 10 menit..."
                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:border-amber-500 focus:outline-none"></textarea>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Status Penyelesaian</label>
-                        <select name="corrective_action_status" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold">
+                        <select name="corrective_action_status" aria-label="Status Penyelesaian" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold">
                             <option value="resolved">Selesai / Teratasi (Resolved)</option>
                             <option value="open">Masih Dalam Penanganan (Open)</option>
                         </select>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-2">
-                        <button type="button" @click="openResolveModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button>
+                        <button type="button" @click="closeModal('openResolveModal')" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button>
                         <button type="submit" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold shadow-md cursor-pointer">Simpan Tindakan</button>
                     </div>
                 </form>

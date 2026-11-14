@@ -1,11 +1,40 @@
 @extends('layouts.app')
 
-@section('title', 'Monitoring Produksi & Bahan Baku Gudang')
-@section('page_title', 'Monitoring Produksi & Gudang Bahan Baku')
-@section('page_subtitle', 'Pencatatan persediaan bahan baku & porsi produksi real-time')
+@section('title', 'Produksi & bahan baku')
+@section('page_title', 'Produksi & bahan baku')
+@section('page_subtitle', 'Persediaan bahan baku dan porsi produksi real-time')
 
 @section('content')
-<div x-data="{
+@php
+    $criticalIngredientCount = $ingredients->filter(fn ($ingredient) => $ingredient->current_stock <= $ingredient->min_stock_threshold)->count();
+    $goodPortions = (int) $productionRuns->sum('actual_good_portions');
+    $damagedPortions = (int) $productionRuns->sum('rejected_damaged_portions');
+    $netVar = (int) ($goodPortions - $productionRuns->sum('planned_portions'));
+    $txTotal = array_sum($txSummary);
+    $txNet = $txSummary['inbound'] - $txSummary['outbound'] - $txSummary['spoilage'];
+    $txMax = max(1, ...array_values($txSummary));
+    $chartIngredients = $ingredients->sortBy(static function ($ingredient) {
+        $stock = (float) $ingredient->current_stock;
+        $threshold = (float) $ingredient->min_stock_threshold;
+        return $threshold > 0 ? $stock / $threshold : ($stock > 0 ? PHP_FLOAT_MAX : 0);
+    })->take(8)->values();
+    $chartIngNames = $chartIngredients->pluck('name')->values();
+    $chartIngUnits = $chartIngredients->pluck('unit')->values();
+    $chartCurrentStocks = $chartIngredients->pluck('current_stock')->map(static fn ($value) => (float) $value)->values();
+    $chartMinThresholds = $chartIngredients->pluck('min_stock_threshold')->map(static fn ($value) => (float) $value)->values();
+    $chartStockPercentages = $chartIngredients->map(static function ($ingredient) {
+        $stock = (float) $ingredient->current_stock;
+        $threshold = (float) $ingredient->min_stock_threshold;
+        return $threshold > 0 ? ($stock / $threshold) * 100 : ($stock > 0 ? 150 : 0);
+    })->values();
+    $chartStockColors = $chartIngredients->map(static function ($ingredient) {
+        $stock = (float) $ingredient->current_stock;
+        $threshold = (float) $ingredient->min_stock_threshold;
+        $ratio = $threshold > 0 ? $stock / $threshold : ($stock > 0 ? 1.5 : 0);
+        return $ratio < 1 ? '#B91C1C' : ($ratio <= 1.2 ? '#B45309' : '#15803D');
+    })->values();
+@endphp
+<div class="production-inventory-page" x-data="{
     openIngModal: false,
     openEditIngModal: false,
     openTxModal: false,
@@ -24,94 +53,199 @@
         this.openEditIngModal = true;
     }
 }">
+    <style>
+        .production-inventory-page .production-summary-card {
+            min-width: 0;
+            border-radius: 1rem;
+        }
 
-    <!-- Top Action & KPI Cards -->
-    <div class="gsap-reveal grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="surface-card rounded-3xl p-5 border-l-4 border-l-emerald-500">
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Item Bahan Baku</p>
-            <div class="flex items-baseline justify-between mt-2">
-                <h3 class="font-display font-extrabold text-3xl text-slate-900">{{ $ingredients->count() }}</h3>
-                <span class="text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full">
-                    {{ $ingredients->filter(fn($i) => $i->current_stock <= $i->min_stock_threshold)->count() }} Kritis
+        .production-inventory-page .production-summary-label {
+            color: #475569;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1.25rem;
+        }
+
+        .production-inventory-page .production-summary-value {
+            margin-top: 0.375rem;
+            color: #061F47;
+            font-size: 2.25rem;
+            font-weight: 800;
+            line-height: 2.5rem;
+            letter-spacing: -0.04em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .production-inventory-page .production-summary-caption {
+            margin-top: 0.375rem;
+            overflow: hidden;
+            color: #475569;
+            font-size: 0.8125rem;
+            line-height: 1.25rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .production-inventory-page .production-action-button {
+            box-sizing: border-box;
+            min-height: 40px;
+            white-space: nowrap;
+        }
+
+        .production-inventory-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        .production-inventory-page select,
+        .production-inventory-page textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .production-inventory-page button {
+            min-height: 44px;
+        }
+
+        .production-inventory-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        .production-inventory-modal select,
+        .production-inventory-modal textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .production-inventory-modal button {
+            min-height: 44px;
+        }
+    </style>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <article class="surface-card production-summary-card p-5">
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="production-summary-label">Item bahan baku</h2>
+                <span class="status-badge {{ $criticalIngredientCount > 0 ? 'status-badge--danger' : 'status-badge--success' }}" title="{{ $criticalIngredientCount > 0 ? $criticalIngredientCount . ' bahan perlu perhatian' : 'Tidak ada bahan kritis' }}">
+                    {{ $criticalIngredientCount > 0 ? number_format($criticalIngredientCount, 0, ',', '.') . ' kritis' : 'Aman' }}
                 </span>
             </div>
-            <p class="text-[11px] text-slate-500 mt-1">Terdaftar di gudang SPPG</p>
-        </div>
+            <p class="production-summary-value">{{ number_format($ingredients->count(), 0, ',', '.') }}</p>
+            <p class="production-summary-caption" title="Terdaftar di gudang SPPG">Terdaftar di gudang SPPG</p>
+        </article>
 
-        <div class="surface-card rounded-3xl p-5 border-l-4 border-l-teal-500">
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Sesi Produksi Dapur</p>
-            <div class="flex items-baseline justify-between mt-2">
-                <h3 class="font-display font-extrabold text-3xl text-slate-900">{{ $productionRuns->count() }}</h3>
-                <span class="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full">
-                    {{ number_format($productionRuns->sum('actual_good_portions')) }} Porsi Layak
+        <article class="surface-card production-summary-card p-5">
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="production-summary-label">Sesi produksi dapur</h2>
+                <span class="status-badge {{ $goodPortions > 0 ? 'status-badge--success' : 'status-badge--neutral' }}" title="{{ number_format($goodPortions, 0, ',', '.') }} porsi layak">
+                    {{ $goodPortions > 0 ? 'Tersedia' : 'Belum ada' }}
                 </span>
             </div>
-            <p class="text-[11px] text-slate-500 mt-1">Total porsi layak saji</p>
-        </div>
+            <p class="production-summary-value">{{ number_format($productionRuns->count(), 0, ',', '.') }}</p>
+            <p class="production-summary-caption" title="{{ number_format($goodPortions, 0, ',', '.') }} porsi layak">Porsi layak: {{ number_format($goodPortions, 0, ',', '.') }}</p>
+        </article>
 
-        <div class="surface-card rounded-3xl p-5 border-l-4 border-l-amber-500">
-            @php
-                $netVar = $productionRuns->sum('actual_good_portions') - $productionRuns->sum('planned_portions');
-            @endphp
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Akumulasi Selisih Porsi</p>
-            <div class="flex items-baseline justify-between mt-2">
-                <h3 class="font-display font-extrabold text-3xl {{ $netVar < 0 ? 'text-rose-600' : 'text-emerald-700' }}">
-                    {{ $netVar >= 0 ? '+' . $netVar : $netVar }}
-                </h3>
-                <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full">
-                    {{ $productionRuns->sum('rejected_damaged_portions') }} Rusak
+        <article class="surface-card production-summary-card p-5">
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="production-summary-label">Akumulasi selisih porsi</h2>
+                <span class="status-badge {{ $netVar === 0 ? 'status-badge--success' : 'status-badge--warning' }}">
+                    {{ $netVar === 0 ? 'Sesuai target' : 'Perlu perhatian' }}
                 </span>
             </div>
-            <p class="text-[11px] text-slate-500 mt-1">Realisasi vs Target Porsi</p>
-        </div>
+            <p class="production-summary-value {{ $netVar !== 0 ? '!text-amber-700' : '!text-green-700' }}">{{ $netVar > 0 ? '+' : '' }}{{ number_format($netVar, 0, ',', '.') }}</p>
+            <p class="production-summary-caption" title="Realisasi dibandingkan target porsi">Realisasi dibandingkan target</p>
+        </article>
 
-        <div class="surface-card rounded-3xl p-5 border-l-4 border-l-indigo-500 flex flex-col justify-between gap-2">
-            <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Aksi Cepat Gudang & Dapur</p>
-            <div class="grid grid-cols-2 gap-2">
-                <button @click="openIngModal = true" class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer">
-                    + Bahan Baku
-                </button>
-                <button @click="openTxModal = true" class="py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px] transition cursor-pointer">
-                    + Mutasi Stok
-                </button>
+        <article class="surface-card production-summary-card p-5">
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="production-summary-label">Porsi rusak</h2>
+                <span class="status-badge {{ $damagedPortions > 0 ? 'status-badge--warning' : 'status-badge--success' }}" title="{{ $damagedPortions > 0 ? number_format($damagedPortions, 0, ',', '.') . ' porsi rusak' : 'Tidak ada porsi rusak' }}">
+                    {{ $damagedPortions > 0 ? 'Perlu perhatian' : 'Tidak ada' }}
+                </span>
             </div>
-            <button @click="openRunModal = true" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition cursor-pointer shadow-sm">
-                + Buka Sesi Produksi Baru
-            </button>
-        </div>
+            <p class="production-summary-value {{ $damagedPortions > 0 ? '!text-amber-700' : '!text-green-700' }}">{{ number_format($damagedPortions, 0, ',', '.') }} <span class="text-sm font-semibold text-slate-500">porsi</span></p>
+            <p class="production-summary-caption" title="Total porsi rusak atau cacat">Total porsi rusak atau cacat</p>
+        </article>
     </div>
 
-    <!-- 2 Grafik Gudang & Finansial -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-        <div class="gsap-reveal lg:col-span-8 surface-card rounded-3xl p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">Grafik Inventori Gudang</span>
-                    <h3 class="font-display font-extrabold text-base text-slate-900 mt-1.5">Perbandingan Stok Aktual vs Ambang Minimum (Safety Stock)</h3>
-                </div>
-            </div>
-            <div class="h-64">
-                <canvas id="stockComparisonChart"></canvas>
-            </div>
+    <section class="surface-card rounded-2xl p-5 sm:p-6 mb-6" aria-labelledby="production-quick-actions-title">
+        <div class="mb-4">
+            <h2 id="production-quick-actions-title" class="text-base font-bold text-slate-900">Aksi cepat</h2>
+            <p class="mt-0.5 text-sm text-slate-600">Gudang & dapur</p>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button type="button" @click="openRunModal = true" class="production-action-button inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-navy px-4 text-sm font-bold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+                <svg class="h-4 w-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>
+                Buka sesi produksi baru
+            </button>
+            <button type="button" @click="openIngModal = true" class="production-action-button inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-brand-navy transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+                <svg class="h-4 w-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>
+                Bahan baku
+            </button>
+            <button type="button" @click="openTxModal = true" class="production-action-button inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-brand-navy transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+                <svg class="h-4 w-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 3l4 4-4 4M3 7h18M7 21l-4-4 4-4m14 4H3"/></svg>
+                Mutasi stok
+            </button>
+        </div>
+    </section>
 
-        <div class="gsap-reveal lg:col-span-4 surface-card rounded-3xl p-6">
+    <!-- 2 Grafik Gudang & Finansial -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 items-stretch gap-4 mb-6">
+        <section class="surface-card rounded-2xl p-5 sm:p-6 xl:col-span-7" aria-labelledby="stock-chart-title">
             <div class="mb-4">
-                <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">Valuasi Mutasi</span>
-                <h3 class="font-display font-extrabold text-base text-slate-900 mt-1.5">Belanja Masuk vs Pemakaian Dapur (Rp)</h3>
+                <h2 id="stock-chart-title" class="text-base font-bold text-slate-900">Stok aktual vs ambang minimum</h2>
+                <p class="mt-0.5 text-sm text-slate-600">Safety stock per bahan baku · stok dibandingkan dalam persentase ambang</p>
             </div>
-            <div class="h-64">
-                <canvas id="txFinancialChart"></canvas>
+            <div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-700" aria-label="Legenda grafik stok">
+                <span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-green-700"></span>Aman</span>
+                <span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-amber-700"></span>Mendekati ambang</span>
+                <span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-red-700"></span>Di bawah ambang</span>
+                <span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full border-2 border-slate-500"></span>Ambang minimum (100%)</span>
             </div>
-        </div>
+            @if($chartIngredients->isNotEmpty())
+                <div style="height: {{ max(180, $chartIngredients->count() * 40) }}px">
+                    <canvas id="stockComparisonChart" role="img" aria-label="Grafik stok aktual dibandingkan ambang minimum bahan baku"></canvas>
+                </div>
+                @if($ingredients->count() > 8)
+                    <a href="#ingredient-inventory" class="mt-3 inline-flex text-sm font-semibold text-blue-800 underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Lihat semua bahan baku</a>
+                @endif
+            @else
+                <p class="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">Belum ada data bahan baku untuk ditampilkan.</p>
+            @endif
+        </section>
+
+        <section class="surface-card rounded-2xl p-5 sm:p-6 xl:col-span-5" aria-labelledby="transaction-valuation-title">
+            <div class="mb-5">
+                <h2 id="transaction-valuation-title" class="text-base font-bold text-slate-900">Belanja masuk vs pemakaian</h2>
+                <p class="mt-0.5 text-sm text-slate-600">Valuasi mutasi (Rp)</p>
+            </div>
+            <div class="mb-5 rounded-xl bg-slate-50 p-4">
+                <span class="block text-xs font-medium text-slate-600">Nilai bersih</span>
+                <span class="mt-1 block text-2xl font-extrabold tabular-nums text-brand-navy">Rp&nbsp;{{ number_format($txNet, 0, ',', '.') }}</span>
+                <span class="mt-1 block text-xs text-slate-500" title="Total valuasi mutasi: Rp {{ number_format($txTotal, 0, ',', '.') }}">Total valuasi: Rp&nbsp;{{ number_format($txTotal, 0, ',', '.') }}</span>
+            </div>
+            <div class="space-y-5">
+                @foreach([
+                    ['label' => 'Penerimaan masuk', 'value' => $txSummary['inbound'], 'color' => '#15803D'],
+                    ['label' => 'Pemakaian masak', 'value' => $txSummary['outbound'], 'color' => '#061F47'],
+                    ['label' => 'Spoilage/susut', 'value' => $txSummary['spoilage'], 'color' => '#B91C1C'],
+                ] as $valuation)
+                    <div class="{{ $valuation['value'] == 0 ? 'opacity-60' : '' }}">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                            <span class="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-700">
+                                <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {{ $valuation['color'] }}"></span>
+                                <span class="truncate">{{ $valuation['label'] }}</span>
+                            </span>
+                            <span class="shrink-0 text-sm font-bold tabular-nums text-slate-900">Rp&nbsp;{{ number_format($valuation['value'], 0, ',', '.') }}</span>
+                        </div>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100" role="img" aria-label="{{ $valuation['label'] }} {{ number_format($valuation['value'] / $txMax * 100, 1, ',', '.') }} persen dari nilai mutasi terbesar">
+                            <div class="h-full rounded-full" style="width: {{ min(100, $valuation['value'] / $txMax * 100) }}%; background-color: {{ $valuation['color'] }}"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
     </div>
 
     <!-- Filter & Search Bar Lengkap -->
-    <div class="gsap-reveal surface-card rounded-3xl p-5 mb-6">
+    <div class="surface-card rounded-3xl p-5 mb-6">
         <form method="GET" action="{{ route('production-inventory.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
             <div class="lg:col-span-4">
                 <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cari Bahan Baku / SKU / No. Referensi</label>
-                <input type="text" name="search" value="{{ $search }}" placeholder="Ketik nama bahan baku, SKU, atau pemasok..."
+                <input type="text" name="search" value="{{ $search }}" placeholder="Cari bahan, SKU, pemasok"
                        class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-emerald-500 focus:outline-none">
             </div>
 
@@ -155,7 +289,7 @@
     </div>
 
     <!-- PANEL 1: REALISASI PRODUKSI & SELISIH PORSI REAL-TIME -->
-    <div class="gsap-reveal surface-card rounded-3xl p-6 mb-6">
+    <div class="surface-card rounded-3xl p-6 mb-6">
         <div class="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-100">
             <div>
                 <span class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600">Dapur Produksi SPPG Sungai Selayur 1</span>
@@ -179,7 +313,7 @@
                         @csrf
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
                             <div class="lg:col-span-3">
-                                <span class="font-mono font-extrabold text-[11px] px-2.5 py-1 rounded-xl bg-teal-50 text-teal-900 border border-teal-300 dark:bg-teal-950/40 dark:text-teal-200 dark:border-teal-700/50">{{ $run->dailyMenu?->menu_code }}</span>
+                                <span class="font-mono font-extrabold text-[11px] px-2.5 py-1 rounded-xl bg-teal-50 text-teal-900 border border-teal-300">{{ $run->dailyMenu?->menu_code }}</span>
                                 <p class="font-bold text-slate-900 text-sm mt-1">{{ $run->dailyMenu?->menu_name }}</p>
                                 <p class="text-[11px] text-slate-500">Rencana: <strong>{{ number_format($run->planned_portions) }} Porsi</strong> &bull; <strong class="text-emerald-700">{{ $run->volunteers_count ?? 35 }} Relawan Dapur</strong></p>
                             </div>
@@ -221,7 +355,7 @@
                                 <label class="block text-[10px] font-bold uppercase text-slate-400 mb-0.5">Status Tahap</label>
                                 <select name="status" class="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold">
                                     <option value="scheduled" {{ $run->status === 'scheduled' ? 'selected' : '' }}>Terjadwal</option>
-                                    <option value="cooking" {{ $run->status === 'cooking' ? 'selected' : '' }}>Memasak (35 Relawan)</option>
+                                    <option value="cooking" {{ $run->status === 'cooking' ? 'selected' : '' }}>Memasak ({{ $standardVolunteers }} Relawan)</option>
                                     <option value="qc_inspection" {{ $run->status === 'qc_inspection' ? 'selected' : '' }}>Inspeksi QC Suhu</option>
                                     <option value="packaging" {{ $run->status === 'packaging' ? 'selected' : '' }}>Pemorsian Ompreng</option>
                                     <option value="ready_for_dispatch" {{ $run->status === 'ready_for_dispatch' ? 'selected' : '' }}>Siap Kirim Armada</option>
@@ -247,7 +381,7 @@
     <!-- PANEL 2: MASTER BAHAN BAKU & LOG MUTASI -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Master Bahan Baku -->
-        <div class="lg:col-span-7 surface-card rounded-3xl p-6">
+        <div id="ingredient-inventory" class="lg:col-span-7 surface-card rounded-3xl p-6">
             <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
                 <div>
                     <h3 class="font-display font-extrabold text-base text-slate-900">Master Persediaan Bahan Baku Gudang</h3>
@@ -286,20 +420,24 @@
                                         <span class="font-display font-extrabold text-sm {{ $ing->current_stock <= $ing->min_stock_threshold ? 'text-rose-600' : 'text-emerald-700' }}">
                                             {{ $ing->current_stock }} {{ $ing->unit }}
                                         </span>
+                                        <span class="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold {{ $ing->current_stock <= $ing->min_stock_threshold ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' }}">
+                                            <span aria-hidden="true">{{ $ing->current_stock <= $ing->min_stock_threshold ? '!' : '✓' }}</span>
+                                            {{ $ing->current_stock <= $ing->min_stock_threshold ? 'Stok kritis' : 'Stok aman' }}
+                                        </span>
                                     </td>
                                     <td class="py-3 px-3 text-slate-500">{{ $ing->min_stock_threshold }} {{ $ing->unit }}</td>
                                     <td class="py-3 px-3 font-semibold">Rp {{ number_format($ing->unit_cost, 0, ',', '.') }}</td>
                                     <td class="py-3 px-3 text-right">
                                         <div class="inline-flex items-center gap-1">
                                             <button type="button" @click="openEditIngredient({{ Js::from($ing) }})"
-                                                    class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 font-bold text-[11px] cursor-pointer">
+                                                    class="min-w-touch inline-flex items-center justify-center px-2 py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 font-bold text-[11px] cursor-pointer">
                                                 Edit
                                             </button>
                                             @if(auth()->user()->role->value === 'admin')
                                                 <form method="POST" action="{{ route('production-inventory.destroy-ingredient', $ing) }}" onsubmit="return confirm('Hapus bahan {{ $ing->name }}?')">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 font-bold text-[11px] cursor-pointer">✕</button>
+                                                    <button type="submit" class="min-w-touch inline-flex items-center justify-center px-2 py-1 rounded-lg bg-rose-50 text-rose-600 font-bold text-[11px] cursor-pointer">✕</button>
                                                 </form>
                                             @endif
                                         </div>
@@ -352,7 +490,7 @@
 
     <!-- MODAL TAMBAH MASTER BAHAN BAKU -->
     <template x-teleport="body">
-        <div x-show="openIngModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openIngModal" x-cloak class="production-inventory-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openIngModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto">
                 <h3 class="font-display font-extrabold text-lg text-slate-900 mb-4">Tambah Master Bahan Baku Gudang</h3>
                 <form method="POST" action="{{ route('production-inventory.store-ingredient') }}" class="space-y-4">
@@ -360,11 +498,11 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kode SKU</label>
-                            <input type="text" name="sku" required value="ING-SS1-{{ rand(100,999) }}" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="text" name="sku" aria-label="Kode SKU" required value="ING-SS1-{{ rand(100,999) }}" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kategori</label>
-                            <select name="category" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <select name="category" aria-label="Kategori" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                                 <option value="karbohidrat">Karbohidrat</option>
                                 <option value="protein_hewani">Protein Hewani</option>
                                 <option value="protein_nabati">Protein Nabati</option>
@@ -377,29 +515,29 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Bahan Baku</label>
-                        <input type="text" name="name" required placeholder="Cth: Beras Premium Slyp Super / Dada Ayam Fillet" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <input type="text" name="name" aria-label="Nama Bahan Baku" required placeholder="Cth: Beras Premium Slyp Super / Dada Ayam Fillet" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Satuan</label>
-                            <input type="text" name="unit" required value="kg" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="text" name="unit" aria-label="Satuan" required value="kg" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Stok Awal</label>
-                            <input type="number" step="0.1" name="current_stock" required value="120" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" step="0.1" name="current_stock" aria-label="Stok Awal" required value="120" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Min. Stok</label>
-                            <input type="number" step="0.1" name="min_stock_threshold" required value="25" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" step="0.1" name="min_stock_threshold" aria-label="Min. Stok" required value="25" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Harga/Unit</label>
-                            <input type="number" name="unit_cost" required value="14500" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" name="unit_cost" aria-label="Harga/Unit" required value="14500" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-3">
-                        <button type="button" @click="openIngModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
-                        <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">Simpan Bahan</button>
+                        <button type="button" @click="openIngModal = false" class="min-h-touch px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
+                        <button type="submit" class="min-h-touch px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">Simpan Bahan</button>
                     </div>
                 </form>
             </div>
@@ -408,7 +546,7 @@
 
     <!-- MODAL EDIT MASTER BAHAN BAKU -->
     <template x-teleport="body">
-        <div x-show="openEditIngModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openEditIngModal" x-cloak class="production-inventory-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openEditIngModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto">
                 <h3 class="font-display font-extrabold text-lg text-slate-900 mb-4" x-text="'Edit Bahan: ' + editIng.name"></h3>
                 <form method="POST" :action="'{{ url('/production-inventory/ingredient') }}/' + editIng.id" class="space-y-4">
@@ -416,12 +554,12 @@
                     @method('PUT')
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Bahan Baku</label>
-                        <input type="text" name="name" x-model="editIng.name" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <input type="text" name="name" aria-label="Nama Bahan Baku" x-model="editIng.name" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kategori</label>
-                            <select name="category" x-model="editIng.category" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <select name="category" aria-label="Kategori" x-model="editIng.category" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                                 <option value="karbohidrat">Karbohidrat</option>
                                 <option value="protein_hewani">Protein Hewani</option>
                                 <option value="protein_nabati">Protein Nabati</option>
@@ -433,26 +571,26 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Satuan</label>
-                            <input type="text" name="unit" x-model="editIng.unit" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="text" name="unit" aria-label="Satuan" x-model="editIng.unit" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Stok Aktual</label>
-                            <input type="number" step="0.1" name="current_stock" x-model="editIng.current_stock" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" step="0.1" name="current_stock" aria-label="Stok Aktual" x-model="editIng.current_stock" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Min. Stok</label>
-                            <input type="number" step="0.1" name="min_stock_threshold" x-model="editIng.min_stock_threshold" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" step="0.1" name="min_stock_threshold" aria-label="Min. Stok" x-model="editIng.min_stock_threshold" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Harga/Unit</label>
-                            <input type="number" name="unit_cost" x-model="editIng.unit_cost" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" name="unit_cost" aria-label="Harga/Unit" x-model="editIng.unit_cost" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-3">
-                        <button type="button" @click="openEditIngModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
-                        <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">Simpan Perubahan</button>
+                        <button type="button" @click="openEditIngModal = false" class="min-h-touch px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
+                        <button type="submit" class="min-h-touch px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">Simpan Perubahan</button>
                     </div>
                 </form>
             </div>
@@ -461,14 +599,14 @@
 
     <!-- MODAL CATAT MUTASI STOK -->
     <template x-teleport="body">
-        <div x-show="openTxModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openTxModal" x-cloak class="production-inventory-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openTxModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto">
                 <h3 class="font-display font-extrabold text-lg text-slate-900 mb-4">Catat Penerimaan / Pemakaian Bahan Baku</h3>
                 <form method="POST" action="{{ route('production-inventory.transaction') }}" class="space-y-4">
                     @csrf
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Bahan Baku</label>
-                        <select name="ingredient_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <select name="ingredient_id" aria-label="Pilih Bahan Baku" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                             @foreach($allIngredients as $ing)
                                 <option value="{{ $ing->id }}">{{ $ing->name }} (Stok: {{ $ing->current_stock }} {{ $ing->unit }})</option>
                             @endforeach
@@ -477,7 +615,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Jenis Mutasi</label>
-                            <select name="type" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <select name="type" aria-label="Jenis Mutasi" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                                 <option value="inbound_purchase">Penerimaan Masuk (+)</option>
                                 <option value="outbound_production">Pemakaian Masak (-)</option>
                                 <option value="spoilage_adjustment">Spoilage / Rusak (-)</option>
@@ -485,13 +623,13 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kuantitas</label>
-                            <input type="number" step="0.1" name="quantity" required value="25" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" step="0.1" name="quantity" aria-label="Kuantitas" required value="25" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kondisi Kesegaran</label>
-                            <select name="freshness_condition" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <select name="freshness_condition" aria-label="Kondisi Kesegaran" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                                 <option value="sangat_segar">Sangat Segar (Grade A)</option>
                                 <option value="layak">Layak Produksi</option>
                                 <option value="ditolak">Ditolak / Reject</option>
@@ -499,12 +637,12 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nama Pemasok / Koperasi</label>
-                            <input type="text" name="supplier_name" placeholder="Koperasi Pangan Sumsel" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="text" name="supplier_name" aria-label="Nama Pemasok / Koperasi" placeholder="Koperasi Pangan Sumsel" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-3">
-                        <button type="button" @click="openTxModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
-                        <button type="submit" class="px-5 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold cursor-pointer">Simpan Mutasi</button>
+                        <button type="button" @click="openTxModal = false" class="min-h-touch px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
+                        <button type="submit" class="min-h-touch px-5 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold cursor-pointer">Simpan Mutasi</button>
                     </div>
                 </form>
             </div>
@@ -513,14 +651,14 @@
 
     <!-- MODAL BUKA SESI PRODUKSI BARU -->
     <template x-teleport="body">
-        <div x-show="openRunModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openRunModal" x-cloak class="production-inventory-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openRunModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto">
                 <h3 class="font-display font-extrabold text-lg text-slate-900 mb-4">Buka Sesi Produksi Dapur Baru</h3>
                 <form method="POST" action="{{ route('production-inventory.store-run') }}" class="space-y-4">
                     @csrf
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Jadwal Menu Harian</label>
-                        <select name="daily_menu_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <select name="daily_menu_id" aria-label="Pilih Jadwal Menu Harian" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                             @foreach($activeMenus as $m)
                                 <option value="{{ $m->id }}">{{ $m->menu_code }} — {{ $m->menu_name }} (Target: {{ $m->target_portions }} Porsi)</option>
                             @endforeach
@@ -529,22 +667,22 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Porsi Layak Saji Aktual</label>
-                            <input type="number" name="actual_good_portions" required value="1414" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" name="actual_good_portions" aria-label="Porsi Layak Saji Aktual" required value="{{ old('actual_good_portions') }}" placeholder="Masukkan hasil aktual" min="0" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Porsi Rusak / Cacat</label>
-                            <input type="number" name="rejected_damaged_portions" required value="0" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" name="rejected_damaged_portions" aria-label="Porsi Rusak / Cacat" required value="0" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Relawan Dapur Shift</label>
-                            <input type="number" name="volunteers_count" required value="35" min="1" max="100" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                            <input type="number" name="volunteers_count" required value="{{ old('volunteers_count', $standardVolunteers) }}" aria-label="Relawan Dapur Shift" min="1" max="100" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Status Tahapan Produksi</label>
-                            <select name="status" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
-                                <option value="cooking">Sedang Memasak (35 Relawan)</option>
+                            <select name="status" aria-label="Status Tahapan Produksi" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                                <option value="cooking">Sedang Memasak ({{ $standardVolunteers }} Relawan)</option>
                                 <option value="qc_inspection">Inspeksi QC Suhu</option>
                                 <option value="packaging">Pemorsian Ompreng</option>
                                 <option value="ready_for_dispatch">Siap Kirim Armada</option>
@@ -553,15 +691,15 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Kendala Operasional (Jika Ada)</label>
-                        <input type="text" name="operational_obstacle" placeholder="Nihil kendala, air dan gas bertekanan stabil..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium">
+                        <input type="text" name="operational_obstacle" aria-label="Catatan Kendala Operasional" placeholder="Nihil kendala, air dan gas bertekanan stabil..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Tindakan Penyelesaian</label>
-                        <input type="text" name="action_taken" placeholder="Semua ompreng dipastikan terkunci rapi..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium">
+                        <input type="text" name="action_taken" aria-label="Tindakan Penyelesaian" placeholder="Semua ompreng dipastikan terkunci rapi..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium">
                     </div>
                     <div class="flex justify-end gap-2 pt-3">
-                        <button type="button" @click="openRunModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
-                        <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer">Simpan Sesi Produksi</button>
+                        <button type="button" @click="openRunModal = false" class="min-h-touch px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold">Batal</button>
+                        <button type="submit" class="min-h-touch px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer">Simpan Sesi Produksi</button>
                     </div>
                 </form>
             </div>
@@ -575,57 +713,110 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const ingNames = @json($chartIngNames);
+    const ingUnits = @json($chartIngUnits);
     const currentStocks = @json($chartCurrentStocks);
     const minThresholds = @json($chartMinThresholds);
+    const stockPercentages = @json($chartStockPercentages);
+    const stockColors = @json($chartStockColors);
 
     const ctxStock = document.getElementById('stockComparisonChart');
     if (ctxStock) {
         new Chart(ctxStock, {
             type: 'bar',
             data: {
-                labels: ingNames.length ? ingNames : ['Belum Ada Bahan Baku'],
+                labels: ingNames,
                 datasets: [
                     {
-                        label: 'Stok Aktual',
-                        data: currentStocks.length ? currentStocks : [0],
-                        backgroundColor: 'rgba(146, 208, 93, 0.85)',
-                        borderRadius: 8
+                        label: 'Stok aktual',
+                        data: stockPercentages,
+                        backgroundColor: stockColors,
+                        borderRadius: 5,
+                        barPercentage: 0.72,
+                        categoryPercentage: 0.8,
+                        maxBarThickness: 22,
+                        order: 2
                     },
                     {
-                        label: 'Ambang Minimum',
-                        data: minThresholds.length ? minThresholds : [0],
-                        backgroundColor: 'rgba(244, 63, 94, 0.75)',
-                        borderRadius: 8
+                        type: 'scatter',
+                        label: 'Ambang minimum',
+                        data: ingNames.map(name => ({ x: 100, y: name })),
+                        pointStyle: 'line',
+                        pointRotation: 90,
+                        pointRadius: 9,
+                        pointHoverRadius: 10,
+                        pointBorderWidth: 2,
+                        pointBorderColor: '#475569',
+                        pointBackgroundColor: '#475569',
+                        showLine: false,
+                        order: 1
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-
-    const txSummary = @json(array_values($txSummary));
-    const totalTx = txSummary.reduce((a, b) => a + b, 0);
-    const ctxFin = document.getElementById('txFinancialChart');
-    if (ctxFin) {
-        new Chart(ctxFin, {
-            type: 'doughnut',
-            data: {
-                labels: totalTx > 0 ? ['Penerimaan Masuk', 'Pemakaian Masak', 'Spoilage/Susut'] : ['Belum Ada Mutasi'],
-                datasets: [{
-                    data: totalTx > 0 ? txSummary : [1],
-                    backgroundColor: totalTx > 0 ? ['#92D05D', '#D1B06C', '#f43f5e'] : ['#1E3266'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '66%',
-                plugins: { legend: { position: 'bottom' } }
+                indexAxis: 'y',
+                interaction: { intersect: false, mode: 'nearest' },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        beginAtZero: true,
+                        max: Math.max(150, ...stockPercentages, 100) * 1.05,
+                        grid: { color: 'rgba(100, 116, 139, 0.12)' },
+                        ticks: {
+                            color: '#475569',
+                            font: { family: 'Plus Jakarta Sans', size: 12 },
+                            callback: value => `${value}%`
+                        },
+                        title: { display: true, text: 'Stok dibanding ambang minimum', color: '#475569', font: { size: 12, weight: '600' } }
+                    },
+                    y: {
+                        type: 'category',
+                        grid: { display: false },
+                        ticks: {
+                            color: '#334155',
+                            font: { family: 'Plus Jakarta Sans', size: 12 },
+                            callback: (value, index) => {
+                                const words = (ingNames[index] ?? '').split(/\s+/);
+                                const lines = [];
+                                let line = '';
+                                words.forEach(word => {
+                                    if (line && `${line} ${word}`.length > 18) {
+                                        lines.push(line);
+                                        line = word;
+                                    } else {
+                                        line = line ? `${line} ${word}` : word;
+                                    }
+                                });
+                                if (line) lines.push(line);
+                                return lines;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#061F47',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        padding: 10,
+                        filter: item => item.datasetIndex === 0,
+                        callbacks: {
+                            title: items => ingNames[items[0]?.dataIndex] ?? '',
+                            label: item => {
+                                const index = item.dataIndex;
+                                const format = value => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(value);
+                                return [
+                                    `Stok aktual: ${format(currentStocks[index])} ${ingUnits[index]} (${format(stockPercentages[index])}% ambang)`,
+                                    `Ambang minimum: ${format(minThresholds[index])} ${ingUnits[index]}`
+                                ];
+                            }
+                        }
+                    }
+                }
             }
         });
     }

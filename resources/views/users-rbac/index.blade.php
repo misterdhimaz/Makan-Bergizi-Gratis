@@ -2,10 +2,18 @@
 
 @section('title', 'Manajemen Pusat: Mitra, SOP BGN & 7 Role RBAC')
 @section('page_title', 'Manajemen Mitra, SOP & 7 Role RBAC')
-@section('page_subtitle', 'Kendali otoritas 1.414 penerima manfaat, 7 peran RBAC, SOP BGN, dan audit trail')
+@section('page_subtitle', 'Kelola data mitra, 7 peran RBAC, parameter SOP, dan audit aktivitas')
 
 @section('content')
-<div x-data="{
+@php
+    $schoolInstitutionCount = $schoolInstitutionCount ?? $allInstitutions
+        ->whereIn('type', ['pesantren', 'sd', 'smp', 'sma', 'paud_tk'])
+        ->count();
+    $posyanduInstitutionCount = $posyanduInstitutionCount ?? $allInstitutions
+        ->where('type', 'posyandu')
+        ->count();
+@endphp
+<div class="users-rbac-page" x-data="{
     activeSection: '{{ request()->has('search_inst') || request()->has('inst_type') ? 'institutions' : 'all' }}',
     openUserModal: false,
     openEditUserModal: false,
@@ -53,36 +61,56 @@
         this.openSopModal = true;
     }
 }">
+    <style>
+        .users-rbac-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        .users-rbac-page select,
+        .users-rbac-page textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .users-rbac-page button {
+            min-height: 44px;
+        }
+
+        .users-rbac-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        .users-rbac-modal select,
+        .users-rbac-modal textarea {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .users-rbac-modal button {
+            min-height: 44px;
+        }
+    </style>
 
     <!-- Hero Banner Otoritas Administrator Pusat -->
-    <div class="gsap-reveal relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#071E49] via-[#0A2A63] to-[#04122E] text-white p-6 lg:p-8 mb-6 shadow-xl border border-emerald-500/20">
-        <div class="ambient-orb w-72 h-72 bg-emerald-500/20 -top-20 -right-10"></div>
-        <div class="ambient-orb w-56 h-56 bg-amber-400/15 bottom-0 left-1/3" style="animation-delay: -5s;"></div>
-
+    <div class="relative rounded-3xl overflow-hidden bg-[#061F47] text-white p-6 lg:p-8 mb-6 shadow-sm">
         <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div>
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold uppercase tracking-widest mb-3">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    Pusat Komando Administrator • Full Access Kendali SPPG
+                    Administrasi SPPG • Pengelolaan akun dan data master
                 </div>
                 <h2 class="font-display font-extrabold text-2xl lg:text-3xl tracking-tight text-white">
                     Manajemen Mitra, 7 Role RBAC & Parameter SOP BGN
                 </h2>
-                <p class="text-xs sm:text-sm text-emerald-100/75 mt-1.5 max-w-2xl leading-relaxed">
-                    Pusat kendali master data <strong class="text-white">1.414 Penerima Manfaat</strong> (5 Sekolah: 1 Pesantren, 4 SD & 2 Posyandu di Kecamatan Kalidoni), otorisasi <strong class="text-white">7 Peran Pengguna</strong>, parameter operasional standar BGN, serta jejak audit real-time.
+                <p class="text-xs sm:text-sm text-slate-200 mt-1.5 max-w-2xl leading-relaxed">
+                    Kelola akun dan peran, mitra penerima, parameter operasional, serta jejak audit sesuai kewenangan Administrator.
                 </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3 shrink-0">
                 <button @click="openInstModal = true"
-                        class="px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 flex items-center gap-2 transition cursor-pointer">
+                        class="px-4 py-3 rounded-2xl bg-[#C8A96A] hover:brightness-95 text-[#061F47] font-bold text-sm flex items-center gap-2 transition cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                     </svg>
                     + Tambah Mitra Penerima
                 </button>
                 <button @click="openUserModal = true"
-                        class="px-4 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition cursor-pointer">
+                        class="px-4 py-3 rounded-2xl bg-white hover:bg-slate-100 text-[#061F47] font-bold text-sm flex items-center gap-2 transition cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
                     </svg>
@@ -93,19 +121,20 @@
 
         <!-- 4 KPI Strip -->
         <div class="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-white/10">
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-300/80">Total Personel Aktif</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $allUsers->where('is_active', true)->count() }} <span class="text-xs font-normal text-slate-300">/ {{ $allUsers->count() }} Akun</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
-                <p class="text-[11px] font-bold uppercase tracking-wider text-amber-300/80">Mitra SPPG Kalidoni</p>
-                <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $allInstitutions->count() }} <span class="text-xs font-normal text-slate-300">Titik (5 Sek + 2 Pos)</span></p>
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-amber-300/80">Mitra Penerima Terdaftar</p>
+                <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $allInstitutions->count() }} <span class="text-xs font-normal text-slate-300">Titik</span></p>
+                <p class="text-xs text-slate-300 mt-1">{{ $schoolInstitutionCount }} Sekolah &bull; {{ $posyanduInstitutionCount }} Posyandu</p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-teal-300/80">Total Kuota Penerima</p>
                 <p class="font-display font-extrabold text-2xl text-emerald-300 mt-1">{{ number_format($totalAllocatedQuota) }} <span class="text-xs font-normal text-slate-300">Porsi/Hari</span></p>
             </div>
-            <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-300/80">Parameter SOP BGN</p>
                 <p class="font-display font-extrabold text-2xl text-white mt-1">{{ $sopConfigs->count() }} <span class="text-xs font-normal text-slate-300">Konfigurasi</span></p>
             </div>
@@ -114,7 +143,7 @@
 
     <!-- 2 Grafik Visualisasi Pusat (Personel per Role & Kuota Mitra) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-        <div class="gsap-reveal lg:col-span-6 surface-card rounded-3xl p-6">
+        <div class="lg:col-span-6 surface-card rounded-3xl p-6">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">Grafik Struktur Organisasi</span>
@@ -127,11 +156,11 @@
             </div>
         </div>
 
-        <div class="gsap-reveal lg:col-span-6 surface-card rounded-3xl p-6">
+        <div class="lg:col-span-6 surface-card rounded-3xl p-6">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">Grafik Kuota 1.414 Penerima Manfaat</span>
-                    <h3 class="font-display font-extrabold text-base text-slate-900 mt-1.5">Alokasi Porsi per Titik Distribusi (Kecamatan Kalidoni)</h3>
+                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">Kuota Terdaftar {{ number_format($totalAllocatedQuota) }} Porsi/Hari</span>
+                    <h3 class="font-display font-extrabold text-base text-slate-900 mt-1.5">Alokasi Porsi per Titik Distribusi</h3>
                 </div>
                 <span class="text-xs font-bold text-slate-500">{{ $institutions->count() }} Titik</span>
             </div>
@@ -144,27 +173,27 @@
     <!-- Quick Section Switcher -->
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div class="inline-flex flex-wrap p-1.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs gap-1">
-            <button @click="activeSection = 'all'"
+            <button type="button" @click="activeSection = 'all'" :aria-pressed="activeSection === 'all'"
                     :class="activeSection === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Tampilkan Semua Panel
             </button>
-            <button @click="activeSection = 'institutions'"
+            <button type="button" @click="activeSection = 'institutions'" :aria-pressed="activeSection === 'institutions'"
                     :class="activeSection === 'institutions' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Mitra Penerima ({{ $institutions->count() }})
             </button>
-            <button @click="activeSection = 'users'"
+            <button type="button" @click="activeSection = 'users'" :aria-pressed="activeSection === 'users'"
                     :class="activeSection === 'users' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Personel 7 Role RBAC ({{ $users->count() }})
             </button>
-            <button @click="activeSection = 'sop'"
+            <button type="button" @click="activeSection = 'sop'" :aria-pressed="activeSection === 'sop'"
                     :class="activeSection === 'sop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Konfigurasi SOP BGN & PAGU ({{ $sopConfigs->count() }})
             </button>
-            <button @click="activeSection = 'audit'"
+            <button type="button" @click="activeSection = 'audit'" :aria-pressed="activeSection === 'audit'"
                     :class="activeSection === 'audit' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     class="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
                 Audit Trail & Log Aktivitas ({{ $auditLogs->count() }})
@@ -172,22 +201,22 @@
         </div>
 
         @if($searchUser !== '' || $roleFilter !== 'all' || $userStatus !== 'all' || $searchInst !== '' || $instType !== 'all')
-            <a href="{{ route('users-rbac.index') }}" class="px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition">
+            <a href="{{ route('users-rbac.index') }}" class="min-h-touch inline-flex items-center px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition">
                 Reset Semua Filter Aktif
             </a>
         @endif
     </div>
 
-    <!-- BAGIAN 1: MANAJEMEN MITRA PENERIMA MANFAAT (1.414 KUOTA) -->
+    <!-- BAGIAN 1: MANAJEMEN MITRA PENERIMA MANFAAT -->
     <div x-show="activeSection === 'all' || activeSection === 'institutions'" x-transition class="surface-card rounded-3xl p-6 mb-8">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 mb-5 border-b border-slate-100">
             <div>
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-amber-600">Master Data 1.414 Penerima Manfaat</span>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-amber-600">Master Data Penerima Manfaat</span>
                 </div>
                 <h3 class="font-display font-extrabold text-lg text-slate-900 mt-1">Daftar Titik Distribusi Sekolah & Posyandu (SPPG Sungai Selayur 1)</h3>
-                <p class="text-xs text-slate-500">5 Sekolah (1 Pesantren, 4 SD) dan 2 Posyandu di Kecamatan Kalidoni Kota Palembang dengan total alokasi 1.414 porsi/hari.</p>
+                <p class="text-xs text-slate-500">{{ $schoolInstitutionCount }} sekolah dan {{ $posyanduInstitutionCount }} posyandu terdaftar dengan total alokasi {{ number_format($totalAllocatedQuota) }} porsi/hari.</p>
             </div>
 
             <button @click="openInstModal = true"
@@ -257,7 +286,7 @@
                             <th class="py-3.5 px-4">Jenjang & Sasaran Penerima</th>
                             <th class="py-3.5 px-4">Kuota Porsi</th>
                             <th class="py-3.5 px-4">PIC Lapangan</th>
-                            <th class="py-3.5 px-4">Alamat Wilayah Kalidoni</th>
+                            <th class="py-3.5 px-4">Alamat Titik Penerima</th>
                             <th class="py-3.5 px-4">Status</th>
                             <th class="py-3.5 px-4 text-right">Aksi Admin</th>
                         </tr>
@@ -295,11 +324,11 @@
                                 <td class="py-3.5 px-4">
                                     @if($inst->is_active)
                                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Aktif
+                                        <span aria-hidden="true">✓</span> Aktif
                                         </span>
                                     @else
                                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                            Nonaktif
+                                        <span aria-hidden="true">×</span> Nonaktif
                                         </span>
                                     @endif
                                 </td>
@@ -307,20 +336,14 @@
                                     <div class="inline-flex items-center gap-1.5">
                                         <button type="button"
                                                 @click="openEditInstitution({{ Js::from($inst) }})"
-                                                class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold text-[11px] transition cursor-pointer">
+                                                class="min-w-touch inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold text-[11px] transition cursor-pointer">
                                             Edit
                                         </button>
-                                        <form method="POST" action="{{ route('users-rbac.toggle-institution', $inst) }}">
+                                        <form method="POST" action="{{ route('users-rbac.toggle-institution', $inst) }}"
+                                              onsubmit="return confirm('Ubah status mitra ini?')">
                                             @csrf
                                             <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] transition cursor-pointer">
                                                 {{ $inst->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ route('users-rbac.destroy-institution', $inst) }}" onsubmit="return confirm('Hapus mitra {{ $inst->name }} dari database?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] transition cursor-pointer">
-                                                Hapus
                                             </button>
                                         </form>
                                     </div>
@@ -411,7 +434,7 @@
                         <tr class="hover:bg-emerald-50/30 transition">
                             <td class="py-3.5 px-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
+                                    <div class="w-9 h-9 rounded-xl bg-[#061F47] text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
                                         {{ strtoupper(substr($u->name, 0, 2)) }}
                                     </div>
                                     <div>
@@ -435,11 +458,11 @@
                             <td class="py-3.5 px-4">
                                 @if($u->is_active)
                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Aktif
+                                        <span aria-hidden="true">✓</span> Aktif
                                     </span>
                                 @else
                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                        Suspended
+                                        <span aria-hidden="true">×</span> Nonaktif
                                     </span>
                                 @endif
                             </td>
@@ -454,22 +477,16 @@
                                                 role: '{{ $u->role->value }}',
                                                 beneficiary_institution_id: '{{ $u->beneficiary_institution_id }}'
                                             })"
-                                            class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold text-[11px] transition cursor-pointer">
+                                            class="min-w-touch inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold text-[11px] transition cursor-pointer">
                                         Edit / Reset Sandi
                                     </button>
 
                                     @if($u->id !== auth()->id())
-                                        <form method="POST" action="{{ route('users-rbac.toggle-user', $u) }}">
+                                        <form method="POST" action="{{ route('users-rbac.toggle-user', $u) }}"
+                                              onsubmit="return confirm('Ubah status akun ini?')">
                                             @csrf
                                             <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] transition cursor-pointer">
-                                                {{ $u->is_active ? 'Suspend' : 'Aktifkan' }}
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ route('users-rbac.destroy-user', $u) }}" onsubmit="return confirm('Hapus akun personel {{ $u->name }}?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] transition cursor-pointer">
-                                                Hapus
+                                                {{ $u->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
                                             </button>
                                         </form>
                                     @else
@@ -571,20 +588,87 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs">
                         @foreach($auditLogs as $log)
+                            @php
+                                $activityActionLabels = [
+                                    'approve_menu' => 'Setujui menu',
+                                    'confirm_receipt' => 'Konfirmasi penerimaan',
+                                    'create_complaint' => 'Buat tiket keluhan',
+                                    'create_delivery' => 'Terbitkan surat jalan',
+                                    'create_ingredient' => 'Tambah bahan baku',
+                                    'create_institution' => 'Tambah mitra',
+                                    'create_menu' => 'Buat rencana menu',
+                                    'create_production' => 'Catat produksi',
+                                    'create_user' => 'Tambah akun',
+                                    'delete_delivery' => 'Hapus surat jalan',
+                                    'delete_ingredient' => 'Hapus bahan baku',
+                                    'delete_institution' => 'Hapus mitra',
+                                    'delete_menu' => 'Hapus rencana menu',
+                                    'delete_qc_inspection' => 'Hapus inspeksi QC',
+                                    'delete_user' => 'Hapus akun',
+                                    'export_csv' => 'Ekspor CSV',
+                                    'export_excel' => 'Ekspor Excel',
+                                    'export_print' => 'Cetak laporan',
+                                    'inventory_transaction' => 'Catat transaksi stok',
+                                    'qc_inspection' => 'Catat pemeriksaan QC',
+                                    'resolve_complaint' => 'Tindak lanjuti keluhan',
+                                    'resolve_qc_action' => 'Tindak lanjuti hasil QC',
+                                    'submit_apd_inspection' => 'Catat pemeriksaan APD',
+                                    'toggle_institution' => 'Ubah status mitra',
+                                    'toggle_user_status' => 'Ubah status akun',
+                                    'update_dispatch' => 'Perbarui pengiriman',
+                                    'update_ingredient' => 'Perbarui bahan baku',
+                                    'update_institution' => 'Perbarui data mitra',
+                                    'update_production' => 'Perbarui produksi',
+                                    'update_sop' => 'Perbarui parameter SOP',
+                                    'update_user' => 'Perbarui akun',
+                                    'verify_apd_inspection' => 'Verifikasi APD',
+                                    'verify_pagu' => 'Verifikasi PAGU',
+                                ];
+                                $activityModuleLabels = [
+                                    'apd_inspection' => 'Inspeksi APD',
+                                    'complaints' => 'Keluhan',
+                                    'distribution' => 'Distribusi',
+                                    'inventory' => 'Persediaan Bahan Baku',
+                                    'master_data' => 'Data Mitra',
+                                    'menu_planning' => 'Perencanaan Menu',
+                                    'production' => 'Produksi',
+                                    'production_inventory' => 'Produksi & Persediaan',
+                                    'quality_control' => 'Kontrol Kualitas',
+                                    'rbac' => 'Akun & Peran',
+                                    'reports' => 'Laporan',
+                                    'settings' => 'Pengaturan',
+                                    'sop_config' => 'Konfigurasi SOP',
+                                ];
+                                $activityActionLabel = $activityActionLabels[$log->action] ?? ucfirst(str_replace('_', ' ', $log->action));
+                                $activityActionClass = match(true) {
+                                    str_starts_with($log->action, 'delete_') => 'bg-rose-50 text-rose-700',
+                                    str_starts_with($log->action, 'create_') => 'bg-emerald-50 text-emerald-700',
+                                    in_array($log->action, ['approve_menu', 'verify_apd_inspection', 'verify_pagu']) => 'bg-indigo-50 text-indigo-700',
+                                    default => 'bg-slate-100 text-slate-700',
+                                };
+                                $activityActionIcon = match(true) {
+                                    str_starts_with($log->action, 'delete_') => '×',
+                                    str_starts_with($log->action, 'create_') => '+',
+                                    in_array($log->action, ['approve_menu', 'verify_apd_inspection', 'verify_pagu']) => '✓',
+                                    default => '•',
+                                };
+                                $activityRole = \App\Enums\UserRole::tryFrom($log->role);
+                            @endphp
                             <tr class="hover:bg-slate-50/70 transition">
                                 <td class="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
                                     {{ $log->created_at->translatedFormat('d M Y, H:i') }}
                                 </td>
                                 <td class="py-3 px-4">
                                     <p class="font-bold text-slate-900">{{ $log->user_name }}</p>
-                                    <span class="text-[10px] font-semibold text-slate-500 uppercase">{{ str_replace('_', ' ', $log->role) }}</span>
+                                    <span class="text-[10px] font-semibold text-slate-500">{{ $activityRole?->label() ?? ucfirst(str_replace('_', ' ', $log->role)) }}</span>
                                 </td>
                                 <td class="py-3 px-4">
                                     <div class="flex flex-col gap-0.5 items-start">
-                                        <span class="font-mono text-[10px] font-extrabold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">
-                                            {{ $log->action }}
+                                        <span class="inline-flex items-center gap-1 font-semibold text-[11px] px-2 py-1 rounded {{ $activityActionClass }}">
+                                            <span aria-hidden="true">{{ $activityActionIcon }}</span>
+                                            {{ $activityActionLabel }}
                                         </span>
-                                        <span class="text-[10px] text-slate-500">{{ $log->module }}</span>
+                                        <span class="text-[10px] text-slate-500">{{ $activityModuleLabels[$log->module] ?? ucfirst(str_replace('_', ' ', $log->module)) }}</span>
                                     </div>
                                 </td>
                                 <td class="py-3 px-4 text-slate-700 max-w-md">
@@ -603,14 +687,14 @@
 
     <!-- MODAL 1: TAMBAH MITRA SEKOLAH / POSYANDU -->
     <template x-teleport="body">
-        <div x-show="openInstModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openInstModal" x-cloak class="users-rbac-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openInstModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Otoritas Administrator Pusat</span>
                         <h3 class="font-display font-extrabold text-lg text-slate-900">Tambah Titik Penerima Manfaat Baru</h3>
                     </div>
-                    <button @click="openInstModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="openInstModal = false" aria-label="Tutup formulir mitra" class="min-w-touch p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" action="{{ route('users-rbac.store-institution') }}" class="space-y-4">
@@ -618,12 +702,12 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kode Titik Distribusi</label>
-                            <input type="text" name="code" required placeholder="Cth: SCH-SS1-006"
+                            <input type="text" name="code" aria-label="Kode Titik Distribusi" required placeholder="Cth: SCH-SS1-006"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kategori / Jenjang</label>
-                            <select name="type" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                            <select name="type" aria-label="Kategori / Jenjang" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                                 <option value="pesantren">Pondok Pesantren (Ponpes)</option>
                                 <option value="sd" selected>Sekolah Dasar (SD)</option>
                                 <option value="smp">SMP / MTs</option>
@@ -637,7 +721,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Sasaran Kategori Penerima</label>
-                            <select name="recipient_category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                            <select name="recipient_category" aria-label="Sasaran Kategori Penerima" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                                 <option value="siswa" selected>Siswa / Santri Sekolah</option>
                                 <option value="balita_bumil">Balita & Ibu Hamil</option>
                                 <option value="balita_busui">Balita & Ibu Menyusui</option>
@@ -646,33 +730,33 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kuota Porsi Harian</label>
-                            <input type="number" name="default_quota" required min="10" value="250"
+                            <input type="number" name="default_quota" aria-label="Kuota Porsi Harian" required min="10" value="250"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Resmi Sekolah / Posyandu</label>
-                        <input type="text" name="name" required placeholder="Cth: SD Negeri 132 Palembang"
+                        <input type="text" name="name" aria-label="Nama Resmi Sekolah / Posyandu" required placeholder="Cth: SD Negeri 132 Palembang"
                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nama PIC Sekolah / Bidan</label>
-                            <input type="text" name="pic_name" placeholder="Cth: Dra. Nurhayati"
+                            <input type="text" name="pic_name" aria-label="Nama PIC Sekolah / Bidan" placeholder="Cth: Dra. Nurhayati"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">No. Kontak WhatsApp PIC</label>
-                            <input type="text" name="contact_phone" placeholder="0812xxxxxxx"
+                            <input type="text" name="contact_phone" aria-label="No. Kontak WhatsApp PIC" placeholder="0812xxxxxxx"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Alamat Lengkap Titik Distribusi</label>
-                        <textarea name="address" rows="2" required placeholder="Jl. Mayor Zen, Kel. Sungai Selayur, Kec. Kalidoni, Palembang"
+                        <textarea name="address" aria-label="Alamat Lengkap Titik Distribusi" rows="2" required placeholder="Jl. Mayor Zen, Kel. Sungai Selayur, Kec. Kalidoni, Palembang"
                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none"></textarea>
                     </div>
 
@@ -687,14 +771,14 @@
 
     <!-- MODAL 2: EDIT MITRA SEKOLAH / POSYANDU -->
     <template x-teleport="body">
-        <div x-show="openEditInstModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openEditInstModal" x-cloak class="users-rbac-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openEditInstModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600">Perbarui Data Titik Distribusi</span>
                         <h3 class="font-display font-extrabold text-lg text-slate-900" x-text="'Edit: ' + editInst.name"></h3>
                     </div>
-                    <button @click="openEditInstModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="openEditInstModal = false" aria-label="Tutup formulir edit mitra" class="min-w-touch p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" :action="'{{ url('/users-rbac/institution') }}/' + editInst.id" class="space-y-4">
@@ -703,12 +787,12 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kode Titik Distribusi</label>
-                            <input type="text" name="code" x-model="editInst.code" required
+                            <input type="text" name="code" aria-label="Kode Titik Distribusi" x-model="editInst.code" required
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kategori / Jenjang</label>
-                            <select name="type" x-model="editInst.type" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                            <select name="type" aria-label="Kategori / Jenjang" x-model="editInst.type" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                                 <option value="pesantren">Pondok Pesantren (Ponpes)</option>
                                 <option value="sd">Sekolah Dasar (SD)</option>
                                 <option value="smp">SMP / MTs</option>
@@ -722,7 +806,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Sasaran Kategori Penerima</label>
-                            <select name="recipient_category" x-model="editInst.recipient_category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                            <select name="recipient_category" aria-label="Sasaran Kategori Penerima" x-model="editInst.recipient_category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                                 <option value="siswa">Siswa / Santri Sekolah</option>
                                 <option value="balita_bumil">Balita & Ibu Hamil</option>
                                 <option value="balita_busui">Balita & Ibu Menyusui</option>
@@ -731,33 +815,33 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Kuota Porsi Harian</label>
-                            <input type="number" name="default_quota" x-model="editInst.default_quota" required min="10"
+                            <input type="number" name="default_quota" aria-label="Kuota Porsi Harian" x-model="editInst.default_quota" required min="10"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Resmi Sekolah / Posyandu</label>
-                        <input type="text" name="name" x-model="editInst.name" required
+                        <input type="text" name="name" aria-label="Nama Resmi Sekolah / Posyandu" x-model="editInst.name" required
                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nama PIC Sekolah / Bidan</label>
-                            <input type="text" name="pic_name" x-model="editInst.pic_name" placeholder="Nama PIC"
+                            <input type="text" name="pic_name" aria-label="Nama PIC Sekolah / Bidan" x-model="editInst.pic_name" placeholder="Nama PIC"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">No. Kontak WhatsApp PIC</label>
-                            <input type="text" name="contact_phone" x-model="editInst.contact_phone"
+                            <input type="text" name="contact_phone" aria-label="No. Kontak WhatsApp PIC" x-model="editInst.contact_phone"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Alamat Lengkap</label>
-                        <textarea name="address" x-model="editInst.address" rows="2" required
+                        <textarea name="address" aria-label="Alamat Lengkap" x-model="editInst.address" rows="2" required
                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none"></textarea>
                     </div>
 
@@ -772,33 +856,33 @@
 
     <!-- MODAL 3: REGISTRASI PERSONEL BARU -->
     <template x-teleport="body">
-        <div x-show="openUserModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openUserModal" x-cloak class="users-rbac-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openUserModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600">Manajemen RBAC</span>
                         <h3 class="font-display font-extrabold text-lg text-slate-900">Registrasi Personel Baru (7 Role)</h3>
                     </div>
-                    <button @click="openUserModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="openUserModal = false" aria-label="Tutup formulir akun" class="min-w-touch p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" action="{{ route('users-rbac.store-user') }}" class="space-y-4">
                     @csrf
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap & Gelar</label>
-                        <input type="text" name="name" required placeholder="Cth: Siti Rahmawati, S.Gz"
+                        <input type="text" name="name" aria-label="Nama Lengkap & Gelar" required placeholder="Cth: Siti Rahmawati, S.Gz"
                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Email Resmi (Login)</label>
-                            <input type="email" name="email" required placeholder="nama@sppg-selayur1.id"
+                            <input type="email" name="email" aria-label="Email Resmi (Login)" required placeholder="nama@sppg-selayur1.id"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp / HP</label>
-                            <input type="text" name="phone" placeholder="0812xxxxxxx"
+                            <input type="text" name="phone" aria-label="Nomor WhatsApp / HP" placeholder="0812xxxxxxx"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
@@ -806,7 +890,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Role Otorisasi (7 Role)</label>
-                            <select name="role" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                            <select name="role" aria-label="Pilih Role Otorisasi (7 Role)" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                                 @foreach($roles as $role)
                                     <option value="{{ $role->value }}">{{ $role->label() }}</option>
                                 @endforeach
@@ -814,14 +898,14 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Password Awal (Min. 8 Karakter)</label>
-                            <input type="password" name="password" required minlength="8" placeholder="Minimal 8 karakter"
+                            <input type="password" name="password" aria-label="Password Awal (Min. 8 Karakter)" required minlength="8" placeholder="Minimal 8 karakter"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Afiliasi Mitra Sekolah / Posyandu (Khusus Guru PIC)</label>
-                        <select name="beneficiary_institution_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                        <select name="beneficiary_institution_id" aria-label="Afiliasi Mitra Sekolah / Posyandu" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                             <option value="">-- Personel Internal Dapur SPPG Sungai Selayur 1 --</option>
                             @foreach($allInstitutions as $inst)
                                 <option value="{{ $inst->id }}">{{ $inst->code }} — {{ $inst->name }}</option>
@@ -840,14 +924,14 @@
 
     <!-- MODAL 4: EDIT PERSONEL & RESET PASSWORD -->
     <template x-teleport="body">
-        <div x-show="openEditUserModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openEditUserModal" x-cloak class="users-rbac-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openEditUserModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600">Otoritas Administrator Pusat</span>
                         <h3 class="font-display font-extrabold text-lg text-slate-900" x-text="'Edit Personel: ' + editUser.name"></h3>
                     </div>
-                    <button @click="openEditUserModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="openEditUserModal = false" aria-label="Tutup formulir edit akun" class="min-w-touch p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" :action="'{{ url('/users-rbac/user') }}/' + editUser.id" class="space-y-4">
@@ -855,19 +939,19 @@
                     @method('PUT')
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap</label>
-                        <input type="text" name="name" x-model="editUser.name" required
+                        <input type="text" name="name" aria-label="Nama Lengkap" x-model="editUser.name" required
                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Email Login</label>
-                            <input type="email" name="email" x-model="editUser.email" required
+                            <input type="email" name="email" aria-label="Email Login" x-model="editUser.email" required
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">No. Telepon</label>
-                            <input type="text" name="phone" x-model="editUser.phone"
+                            <input type="text" name="phone" aria-label="No. Telepon" x-model="editUser.phone"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
@@ -875,7 +959,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Role RBAC</label>
-                            <select name="role" x-model="editUser.role" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                            <select name="role" aria-label="Role RBAC" x-model="editUser.role" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                                 @foreach($roles as $role)
                                     <option value="{{ $role->value }}">{{ $role->label() }}</option>
                                 @endforeach
@@ -883,14 +967,14 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Password Baru (Opsional)</label>
-                            <input type="password" name="password" minlength="8" placeholder="Kosongkan jika tetap"
+                            <input type="password" name="password" aria-label="Password Baru (Opsional)" minlength="8" placeholder="Kosongkan jika tetap"
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Afiliasi Mitra Sekolah / Posyandu</label>
-                        <select name="beneficiary_institution_id" x-model="editUser.beneficiary_institution_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
+                        <select name="beneficiary_institution_id" aria-label="Afiliasi Mitra Sekolah / Posyandu" x-model="editUser.beneficiary_institution_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:border-emerald-500 focus:outline-none">
                             <option value="">-- Personel Internal SPPG Sungai Selayur 1 --</option>
                             @foreach($allInstitutions as $inst)
                                 <option value="{{ $inst->id }}">{{ $inst->code }} — {{ $inst->name }}</option>
@@ -909,14 +993,14 @@
 
     <!-- MODAL 5: PERBARUI PARAMETER SOP BGN -->
     <template x-teleport="body">
-        <div x-show="openSopModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div x-show="openSopModal" x-cloak class="users-rbac-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 overflow-y-auto">
             <div @click.away="openSopModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-auto">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600">Konfigurasi SOP BGN</span>
                         <h3 class="font-display font-extrabold text-base text-slate-900" x-text="editSop.param_name"></h3>
                     </div>
-                    <button @click="openSopModal = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
+                    <button type="button" @click="openSopModal = false" aria-label="Tutup formulir konfigurasi SOP" class="min-w-touch p-2 rounded-xl text-slate-400 hover:bg-slate-100">✕</button>
                 </div>
 
                 <form method="POST" :action="'{{ url('/users-rbac/sop-config') }}/' + editSop.id" class="space-y-4">
@@ -927,13 +1011,13 @@
                         <label class="block text-xs font-bold text-slate-700 mb-1">
                             Nilai Parameter Baru (<span x-text="editSop.unit"></span>)
                         </label>
-                        <input type="text" name="param_value" x-model="editSop.param_value" required
+                        <input type="text" name="param_value" aria-label="Nilai Parameter Baru" x-model="editSop.param_value" required
                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-indigo-500 focus:outline-none">
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Deskripsi / Dasar Regulasi SOP</label>
-                        <textarea name="description" x-model="editSop.description" rows="3"
+                        <textarea name="description" aria-label="Deskripsi / Dasar Regulasi SOP" x-model="editSop.description" rows="3"
                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:border-indigo-500 focus:outline-none"></textarea>
                     </div>
 

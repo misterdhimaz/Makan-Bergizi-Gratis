@@ -1,22 +1,22 @@
-<!-- WORKSPACE KHUSUS AHLI GIZI (Echa Urbhita, S.Gz) -->
-<div class="gsap-stagger-card surface-card rounded-3xl p-6 sm:p-7 border-l-4 border-l-emerald-500 shadow-soft">
-    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-slate-100 dark:border-slate-800 mb-6">
+<!-- RINGKASAN TUGAS AHLI GIZI -->
+<div class="surface-card rounded-3xl p-6 sm:p-7 border-l-4 border-l-emerald-500 shadow-soft">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-slate-100 mb-6">
         <div class="flex items-start gap-4">
-            <div class="w-14 h-14 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/25 flex items-center justify-center text-2xl shrink-0 font-bold">
-                🥗
+            <div class="role-summary-icon flex shrink-0 items-center justify-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-8"/><path d="M12 14c-4.5 0-7-2.5-7-7 4.5 0 7 2.5 7 7Z"/><path d="M12 11c0-4 2.5-6 7-6 0 4.5-2 7-7 7"/></svg>
             </div>
             <div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300">
-                        Workspace Ahli Gizi
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Ringkasan Ahli Gizi
                     </span>
                     <span class="text-xs text-slate-400 font-medium">Standar AKG & Audit Termal HACCP BGN</span>
                 </div>
-                <h3 class="font-display font-extrabold text-xl text-slate-900 dark:text-white mt-1">
-                    Ruang Kerja & Kendali Mutu Gizi — Echa Urbhita, S.Gz
+                <h3 class="font-display font-extrabold text-xl text-slate-900 mt-1">
+                    Kendali Mutu Gizi — {{ auth()->user()->name }}
                 </h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Tanggung jawab pokok: penyusunan siklus menu bernutrisi seimbang, audit suhu titik kendali kritis ($\ge 75^\circ\text{C}$), arsip bank sampel 48 jam, dan pengawasan kepatuhan APD 35 relawan dapur.
+                <p class="text-xs text-slate-500 mt-0.5">
+                    Tanggung jawab utama: menyusun menu bergizi seimbang, memeriksa suhu pangan, menyimpan sampel makanan, dan memantau kepatuhan APD.
                 </p>
             </div>
         </div>
@@ -35,7 +35,7 @@
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                 Ceklis 5 APD
             </a>
-            <a href="{{ route('reports.index', ['type' => 'qc_apd']) }}" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">
+            <a href="{{ route('reports.index', ['type' => 'qc_apd']) }}" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
                 Laporan Kinerja Gizi
             </a>
         </div>
@@ -43,44 +43,44 @@
 
     <!-- 4 KARTU BENTO KHUSUS AHLI GIZI -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Nutrisi Menu Hari Ini</span>
-            <p class="font-display font-extrabold text-xl text-slate-900 dark:text-white mt-1">{{ $todayMenu?->calories_kcal ?? 0 }} <span class="text-xs font-normal text-slate-500">kkal</span></p>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Protein: <strong>{{ $todayMenu?->protein_gram ?? 0 }}g</strong> &bull; Karbo: {{ $todayMenu?->carbs_gram ?? 0 }}g</p>
+        <div class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">Nutrisi Menu Hari Ini</span>
+            <p class="font-display font-extrabold text-xl text-slate-900 mt-1">{{ $todayMenu?->calories_kcal ?? 0 }} <span class="text-xs font-normal text-slate-500">kkal</span></p>
+            <p class="text-xs text-slate-600 mt-1">Protein: <strong>{{ $todayMenu?->protein_gram ?? 0 }}g</strong> &bull; Karbo: {{ $todayMenu?->carbs_gram ?? 0 }}g</p>
         </div>
 
-        <div class="p-4 rounded-2xl bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/40">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-teal-700 dark:text-teal-400">Audit Suhu Masak Inti</span>
-            <p class="font-display font-extrabold text-xl text-rose-600 mt-1">{{ $coreTemp ? $coreTemp . '°C' : '-' }}</p>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Standar BGN: <strong class="text-emerald-700 dark:text-emerald-400">&ge; 75°C</strong> (Holding: {{ $holdingTemp ? $holdingTemp . '°C' : '-' }})</p>
+        <div class="p-4 rounded-2xl bg-teal-50/60 border border-teal-200">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-teal-700">Audit Suhu Masak Inti</span>
+            <p class="font-display font-extrabold text-xl text-rose-600 mt-1">{{ $latestQc?->cooking_core_temp_c ? $latestQc->cooking_core_temp_c . '°C' : '-' }}</p>
+            <p class="text-xs text-slate-600 mt-1">Standar BGN: <strong class="text-emerald-700">&ge; 75°C</strong> (Holding: {{ $latestQc?->holding_temp_c ? $latestQc->holding_temp_c . '°C' : '-' }})</p>
         </div>
 
-        <div class="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">Kepatuhan 5 APD Relawan</span>
-            <p class="font-display font-extrabold text-xl text-indigo-700 dark:text-indigo-300 mt-1">{{ $todayApd?->compliance_percentage ?? ($latestQc?->apd_compliance_score ?? 0) }}%</p>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">35 Relawan Dapur &bull; SOP Higienitas BGN</p>
+        <div class="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700">Kepatuhan 5 APD Relawan</span>
+            <p class="font-display font-extrabold text-xl text-indigo-700 mt-1">{{ $todayApd?->compliance_percentage ?? ($latestQc?->apd_compliance_score ?? 0) }}%</p>
+            <p class="text-xs text-slate-600 mt-1">{{ $volunteersCount }} Relawan Dapur &bull; SOP Higienitas BGN</p>
         </div>
 
-        <div class="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">Bank Sampel Chiller 48 Jam</span>
-            <p class="font-display font-extrabold text-xl text-amber-700 dark:text-amber-300 mt-1">{{ \App\Models\QcInspection::where('food_sample_retained', true)->count() }} <span class="text-xs font-normal text-slate-500">Sampel</span></p>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Pengarsipan wajib 2x24 jam sebelum kirim</p>
+        <div class="p-4 rounded-2xl bg-amber-50/60 border border-amber-200">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-700">Bank Sampel Chiller 48 Jam</span>
+            <p class="font-display font-extrabold text-xl text-amber-700 mt-1">{{ \App\Models\QcInspection::where('food_sample_retained', true)->count() }} <span class="text-xs font-normal text-slate-500">Sampel</span></p>
+            <p class="text-xs text-slate-600 mt-1">Pengarsipan wajib 2x24 jam sebelum kirim</p>
         </div>
     </div>
 
     <!-- ANTREAN TUGAS AKTIF AHLI GIZI -->
     @if($uninspectedRuns->count() > 0 || $myDraftMenus->count() > 0)
-    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
             Antrean Tugas Butuh Tindakan Anda:
         </h4>
         <div class="space-y-2">
             @foreach($uninspectedRuns as $run)
-            <div class="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+            <div class="role-list-item flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 text-xs">
                 <div>
-                    <span class="font-bold text-slate-900 dark:text-white">Batch Produksi {{ $run->dailyMenu?->menu_code }}</span>
-                    <span class="text-slate-500 dark:text-slate-400">&bull; {{ $run->dailyMenu?->menu_name }} ({{ number_format($run->planned_portions) }} porsi) belum diaudit suhunya</span>
+                    <span class="font-bold text-slate-900">Batch Produksi {{ $run->dailyMenu?->menu_code }}</span>
+                    <span class="text-slate-500">&bull; {{ $run->dailyMenu?->menu_name }} ({{ number_format($run->planned_portions, 0, ',', '.') }} porsi) belum diaudit suhunya</span>
                 </div>
                 <a href="{{ route('quality-control.index') }}" class="px-3 py-1 rounded-lg bg-teal-600 text-white font-bold text-[11px] hover:bg-teal-500 transition">
                     Audit Suhu Sekarang &rarr;
@@ -88,10 +88,10 @@
             </div>
             @endforeach
             @foreach($myDraftMenus as $dm)
-            <div class="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+            <div class="role-list-item flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 text-xs">
                 <div>
-                    <span class="font-bold text-slate-900 dark:text-white">{{ $dm->menu_code }} — {{ $dm->menu_name }}</span>
-                    <span class="text-amber-600 dark:text-amber-400 font-semibold">[{{ $dm->status_label }}]</span>
+                    <span class="font-bold text-slate-900">{{ $dm->menu_code }} — {{ $dm->menu_name }}</span>
+                    <span class="text-amber-600 font-semibold">[{{ $dm->status_label }}]</span>
                 </div>
                 <a href="{{ route('menu-planning.index') }}" class="px-3 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-500 transition">
                     Lengkapi & Ajukan &rarr;
@@ -102,4 +102,3 @@
     </div>
     @endif
 </div>
-
