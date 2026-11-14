@@ -1,3 +1,9 @@
+@php
+    $institutionQuotaTotal = $institutionQuotaTotal ?? (int) $institutions->sum('default_quota');
+    $activeInstitutionCount = $activeInstitutionCount ?? $institutions->count();
+    $volunteersCount = $volunteersCount ?? (int) ($sopConfigs->get('jumlah_relawan_dapur_shift')?->param_value ?? 35);
+    $paguLimit = $paguLimit ?? (float) ($sopConfigs->get('pagu_anggaran_per_porsi')?->param_value ?? 15000);
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -13,10 +19,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #0f172a;
             background-color: #f8fafc;
         }
@@ -27,24 +33,47 @@
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
         }
+        @media screen and (max-width: 640px) {
+            .print-container table {
+                display: block;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: auto;
+            }
+        }
+    </style>
+    <style>
+        .no-print input,
+        .no-print button,
+        .no-print a {
+            min-height: 44px;
+            font-size: 16px;
+        }
+
+        .no-print a,
+        .no-print button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body class="py-6 px-4">
 
     <!-- Action Bar (Hanya tampil di layar — Tidak Pindah Tab, 3 Opsi Lengkap: PDF, Excel, CSV) -->
-    <div class="no-print max-w-5xl mx-auto mb-6 flex flex-col md:flex-row items-center justify-between gap-3 bg-slate-900 text-white p-4 rounded-2xl shadow-xl border border-slate-800">
+    <div class="no-print max-w-5xl mx-auto mb-6 flex flex-col md:flex-row items-center justify-between gap-3 bg-white text-slate-800 p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex flex-wrap items-center gap-3">
-            <a href="{{ route('dashboard') }}" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold transition-colors inline-flex items-center gap-1.5 border border-slate-700">
+            <a href="{{ route('dashboard') }}" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold transition-colors inline-flex items-center gap-1.5 border border-slate-200">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 Kembali ke Dashboard
             </a>
-            <span class="text-xs text-slate-500 hidden sm:inline">|</span>
+            <span class="text-xs text-slate-400 hidden sm:inline">|</span>
             <div class="flex items-center gap-2">
-                <label for="reportDateInput" class="text-xs text-slate-400 font-semibold hidden lg:inline">Tanggal:</label>
+                <label for="reportDateInput" class="text-sm text-slate-600 font-semibold hidden lg:inline">Tanggal:</label>
                 <form method="GET" action="{{ route('reports.print-daily') }}" class="inline-flex items-center gap-1.5">
                     <input type="hidden" name="type" value="{{ $type ?? 'operasional' }}">
                     <input type="date" id="reportDateInput" name="date" value="{{ $carbonDate->format('Y-m-d') }}" onchange="this.form.submit()"
-                           class="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-mono font-bold text-white focus:outline-none focus:border-emerald-500">
+                           class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-800 focus:outline-none focus:border-[#061F47]">
                 </form>
             </div>
         </div>
@@ -52,22 +81,22 @@
         <!-- 3 OPSI DOKUMEN RESMI (PDF, EXCEL, CSV) -->
         <div class="flex flex-wrap items-center gap-2">
             <!-- 1. Opsi PDF (Cetak Langsung) -->
-            <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-extrabold text-white transition-all inline-flex items-center gap-1.5 shadow cursor-pointer">
+            <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-[#C8A96A] hover:brightness-95 font-extrabold text-[#061F47] transition-all inline-flex items-center gap-1.5 shadow-sm cursor-pointer">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                 1. Cetak / PDF
             </button>
 
             <!-- 2. Opsi Excel (.xls Formatted) -->
             <a href="{{ route('reports.export-excel', ['type' => $type ?? 'operasional', 'date' => $carbonDate->format('Y-m-d')]) }}"
-               class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-xs font-bold text-white transition-all inline-flex items-center gap-1.5 shadow">
+               class="px-3.5 py-2 rounded-xl bg-[#061F47] hover:bg-[#0B2B5B] font-bold text-white transition-all inline-flex items-center gap-1.5 shadow-sm">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 2. Unduh Excel (.xls)
             </a>
 
             <!-- 3. Opsi CSV (.csv UTF-8) -->
             <a href="{{ route('reports.export-csv', ['type' => $type ?? 'operasional', 'date' => $carbonDate->format('Y-m-d')]) }}"
-               class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 hover:text-white transition-all inline-flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+               class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 font-bold text-slate-800 transition-all inline-flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 3. Unduh CSV
             </a>
         </div>
@@ -79,12 +108,8 @@
         <!-- KOP SURAT RESMI -->
         <div class="border-b-4 border-slate-900 pb-5 mb-6 flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-slate-950 flex items-center justify-center text-emerald-400 border border-slate-700 shadow-md">
-                    <svg class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        <path d="M9 12l2 2 4-4" stroke-width="2.5" />
-                    </svg>
-                </div>
+                <img src="{{ asset('images/bgn-sppg-logo.png') }}" alt="Lambang Badan Gizi Nasional Republik Indonesia"
+                     class="w-16 h-16 rounded-full bg-white border border-slate-300 object-contain shrink-0">
                 <div>
                     <h2 class="text-sm font-extrabold tracking-widest uppercase text-slate-600">Badan Gizi Nasional (BGN) Republik Indonesia</h2>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">SATUAN PELAYANAN PEMENUHAN GIZI (SPPG) SUNGAI SELAYUR 1</h1>
@@ -128,12 +153,12 @@
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[10px] font-bold uppercase text-slate-500 block">Kapasitas Layanan</span>
-                    <span class="text-lg font-black text-slate-900">1.414 Porsi</span>
-                    <span class="text-[10px] text-slate-500 block">7 Titik Kalidoni</span>
+                    <span class="text-lg font-black text-slate-900">{{ number_format($institutionQuotaTotal) }} Porsi</span>
+                    <span class="text-[10px] text-slate-500 block">{{ $activeInstitutionCount }} Titik Mitra Aktif</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[10px] font-bold uppercase text-slate-500 block">Tenaga Relawan Dapur</span>
-                    <span class="text-lg font-black text-slate-900">35 Orang</span>
+                    <span class="text-lg font-black text-slate-900">{{ $volunteersCount }} Orang</span>
                     <span class="text-[10px] text-slate-500 block">Higiene & APD Terpenuhi</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -144,18 +169,18 @@
             @else
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[10px] font-bold uppercase text-slate-500 block">Total Penerima Manfaat</span>
-                    <span class="text-lg font-black text-slate-900">1.414 Porsi</span>
-                    <span class="text-[10px] text-slate-500 block">5 Sekolah + 2 Posyandu</span>
+                    <span class="text-lg font-black text-slate-900">{{ number_format($institutionQuotaTotal) }} Porsi</span>
+                    <span class="text-[10px] text-slate-500 block">{{ $activeInstitutionCount }} Titik Mitra Aktif</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[10px] font-bold uppercase text-slate-500 block">Relawan Dapur Shift</span>
-                    <span class="text-lg font-black text-slate-900">35 Orang</span>
+                    <span class="text-lg font-black text-slate-900">{{ $volunteersCount }} Orang</span>
                     <span class="text-[10px] text-slate-500 block">SOP APD & Higiene Terpenuhi</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[10px] font-bold uppercase text-slate-500 block">Status Validasi PAGU</span>
                     <span class="text-lg font-black text-emerald-600 uppercase">{{ $menu?->pagu_status ?? 'SESUAI' }}</span>
-                    <span class="text-[10px] text-slate-500 block">Maks Rp15.000 / Porsi</span>
+                    <span class="text-[10px] text-slate-500 block">Maks Rp{{ number_format($paguLimit, 0, ',', '.') }} / Porsi</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[10px] font-bold uppercase text-slate-500 block">Kepatuhan QC & Suhu</span>
@@ -228,7 +253,7 @@
                             <th class="border border-slate-300 p-2 font-bold">Estimasi Biaya per Porsi</th>
                             <td class="border border-slate-300 p-2 font-bold text-slate-900">
                                 Rp {{ number_format($menu->estimated_cost_per_portion, 0, ',', '.') }}
-                                <span class="text-[10px] font-normal text-slate-500">(Batas Pagu: Rp 15.000)</span>
+                                <span class="text-[10px] font-normal text-slate-500">(Batas Pagu: Rp {{ number_format($paguLimit, 0, ',', '.') }})</span>
                             </td>
                         </tr>
                         <tr class="bg-slate-50">
@@ -256,13 +281,13 @@
             <!-- BAGIAN 2: PRODUKSI DAPUR, PEMORSIAN OMPRENG & HACCP APD -->
             <div class="mb-6">
                 <h3 class="text-xs font-black uppercase tracking-wider text-slate-800 bg-slate-100 py-1.5 px-3 rounded-lg border-l-4 border-amber-500 mb-2">
-                    2. Pemorsian Ompreng, Keamanan Pangan HACCP & APD 35 Relawan
+                    2. Pemorsian Ompreng, Keamanan Pangan HACCP & APD {{ $volunteersCount }} Relawan
                 </h3>
                 <div class="grid grid-cols-2 gap-3 text-xs">
                     <table class="border-collapse border border-slate-300 w-full">
                         <tr class="bg-slate-50"><th colspan="2" class="border border-slate-300 p-1.5 font-bold text-slate-800 text-center">Pemorsian Ompreng</th></tr>
-                        <tr><td class="border border-slate-300 p-1.5">Rencana Porsi</td><td class="border border-slate-300 p-1.5 font-bold text-right">{{ $productionRun ? number_format($productionRun->planned_portions) : '1.414' }} Porsi</td></tr>
-                        <tr><td class="border border-slate-300 p-1.5">Hasil Porsi Baik (Ompreng)</td><td class="border border-slate-300 p-1.5 font-bold text-right text-emerald-700">{{ $productionRun ? number_format($productionRun->actual_good_portions) : '1.414' }} Porsi</td></tr>
+                        <tr><td class="border border-slate-300 p-1.5">Rencana Porsi</td><td class="border border-slate-300 p-1.5 font-bold text-right">{{ $productionRun ? number_format($productionRun->planned_portions) : number_format($menu?->target_portions ?? $institutionQuotaTotal) }} Porsi</td></tr>
+                        <tr><td class="border border-slate-300 p-1.5">Hasil Porsi Baik (Ompreng)</td><td class="border border-slate-300 p-1.5 font-bold text-right text-emerald-700">{{ $productionRun ? number_format($productionRun->actual_good_portions) : 'Belum dicatat' }} Porsi</td></tr>
                         <tr><td class="border border-slate-300 p-1.5">Porsi Cacat / Afkir</td><td class="border border-slate-300 p-1.5 font-bold text-right text-rose-700">{{ $productionRun ? number_format($productionRun->rejected_damaged_portions) : '0' }} Porsi</td></tr>
                         <tr class="bg-slate-50"><td class="border border-slate-300 p-1.5 font-bold">Selisih Porsi (Variance)</td><td class="border border-slate-300 p-1.5 font-black text-right">{{ $productionRun ? ($productionRun->portion_variance >= 0 ? '+' : '') . $productionRun->portion_variance : '0' }} Porsi</td></tr>
                         <tr><td class="border border-slate-300 p-1.5">Kendala Operasional</td><td class="border border-slate-300 p-1.5 text-slate-600">{{ $productionRun?->operational_obstacle ?? 'Nihil / Lancar' }}</td></tr>
@@ -279,10 +304,10 @@
                 </div>
             </div>
 
-            <!-- BAGIAN 3: DISTRIBUSI & KONFIRMASI PENERIMAAN 7 MITRA (1.414 PORSI) -->
+            <!-- BAGIAN 3: DISTRIBUSI & KONFIRMASI PENERIMAAN MITRA -->
             <div class="mb-6">
                 <h3 class="text-xs font-black uppercase tracking-wider text-slate-800 bg-slate-100 py-1.5 px-3 rounded-lg border-l-4 border-sky-600 mb-2">
-                    3. Realisasi Distribusi & Uji Organoleptik 7 Mitra (Total 1.414 Porsi)
+                    3. Realisasi Distribusi & Uji Organoleptik {{ $activeInstitutionCount }} Mitra (Total {{ number_format($institutionQuotaTotal) }} Porsi)
                 </h3>
                 <table class="w-full text-[11px] text-left border-collapse border border-slate-300">
                     <thead>
@@ -341,7 +366,7 @@
                             <td class="border border-slate-300 p-2 text-center text-sky-800">{{ number_format($sumDisp) }}</td>
                             <td class="border border-slate-300 p-2 text-center text-emerald-800">{{ number_format($sumRecv) }}</td>
                             <td colspan="4" class="border border-slate-300 p-2 text-slate-600 text-[10px] font-normal italic">
-                                *Sesuai kuota resmi 1.414 penerima manfaat Kecamatan Kalidoni
+                                *Sesuai kuota resmi {{ number_format($institutionQuotaTotal) }} penerima manfaat dari {{ $activeInstitutionCount }} mitra aktif
                             </td>
                         </tr>
                     </tbody>
@@ -447,7 +472,7 @@
                         <span class="font-serif italic text-sm text-slate-400">[Tanda Tangan Digital]</span>
                     </div>
                     <p class="font-black text-slate-900 underline">Chef Hendra Wijaya</p>
-                    <p class="text-[10px] text-slate-500">Komando Produksi & 35 Relawan</p>
+                    <p class="text-[10px] text-slate-500">Koordinasi Produksi & {{ $volunteersCount }} Relawan</p>
                 </div>
                 <div>
                     <p class="text-[10px] font-bold uppercase text-slate-500">Penanggung Jawab / Admin</p>
