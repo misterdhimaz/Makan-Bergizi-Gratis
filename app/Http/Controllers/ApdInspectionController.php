@@ -48,7 +48,8 @@ class ApdInspectionController extends Controller
         $chartScores = $chartData->pluck('compliance_percentage');
 
         // Parameter SOP Relawan BGN
-        $defaultVolunteers = (int) SopConfiguration::getValue('tenaga_relawan_dapur_per_shift', 35);
+        $defaultVolunteers = (int) (SopConfiguration::getValue('jumlah_relawan_dapur_shift')
+            ?? SopConfiguration::getValue('tenaga_relawan_dapur_per_shift', 35));
 
         // Produksi aktif hari ini
         $activeProduction = ProductionRun::with('dailyMenu')

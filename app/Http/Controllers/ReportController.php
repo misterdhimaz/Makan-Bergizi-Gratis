@@ -776,7 +776,7 @@ class ReportController extends Controller
                 'role_name' => 'Kepala Dapur (Head Chef)',
                 'personnel' => 'Chef Hendra Wijaya',
                 'primary_task' => 'Approval Menu, Komando 35 Relawan Masak, Kontrol Realisasi & Selisih Porsi',
-                'metric_output' => 'Realisasi: ' . number_format($productionRun?->portions_good ?? 0) . ' / ' . number_format($productionRun?->planned_portions ?? 0) . ' Porsi • Cacat/Reject: ' . ($productionRun?->portions_damaged ?? 0) . ' Porsi',
+                'metric_output' => 'Realisasi: ' . number_format($productionRun?->actual_good_portions ?? 0) . ' / ' . number_format($productionRun?->planned_portions ?? 0) . ' Porsi • Cacat/Reject: ' . ($productionRun?->rejected_damaged_portions ?? 0) . ' Porsi',
                 'compliance_sop' => 'Kepatuhan 5 APD 35 Relawan: ' . ($apd?->compliance_percentage ?? 92) . '%',
                 'score' => 'Sangat Baik (A)',
                 'status' => 'Komando Efektif',
