@@ -86,7 +86,7 @@
 
             <div class="bg-white/10 border border-white/20 rounded-2xl p-3.5">
                 <p class="text-[10px] font-bold uppercase tracking-wider text-teal-300/80">Realisasi Porsi Masak</p>
-                <p class="font-display font-extrabold text-base text-white mt-0.5">{{ number_format($productionRun?->portions_good ?? 0) }} Porsi</p>
+                <p class="font-display font-extrabold text-base text-white mt-0.5">{{ number_format($productionRun?->actual_good_portions ?? 0) }} Porsi</p>
                 <span class="inline-flex items-center gap-1 text-[10px] text-emerald-200"><span aria-hidden="true">✓</span>Target: {{ number_format($productionRun?->planned_portions ?? ($menu?->target_portions ?? 0)) }}</span>
             </div>
 
