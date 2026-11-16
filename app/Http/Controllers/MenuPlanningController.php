@@ -154,7 +154,7 @@ class MenuPlanningController extends Controller
     }
 
     /**
-     * Input & Pengajuan Draf Rencana Menu oleh Ahli Gizi (Fitur 4)
+     * Input & Pengajuan Draf Rencana Menu oleh Ahli Gizi atau Penetapan Langsung oleh Admin (Fitur 4)
      */
     public function store(Request $request): RedirectResponse
     {
@@ -167,10 +167,10 @@ class MenuPlanningController extends Controller
         }
         $validated['menu_code'] = $code;
 
-        DB::transaction(function () use ($validated) {
-            $userRole = Auth::user()->role->value;
-            $isAdmin = $userRole === 'admin';
+        $userRole = Auth::user()->role->value;
+        $isAdmin = $userRole === 'admin';
 
+        DB::transaction(function () use ($validated, $isAdmin) {
             $menu = DailyMenu::create([
                 'operational_date' => $validated['operational_date'],
                 'menu_code' => $validated['menu_code'],
@@ -207,15 +207,23 @@ class MenuPlanningController extends Controller
                 ]);
             }
 
+            $logMessage = $isAdmin
+                ? "Administrator Pusat menetapkan dan menyetujui langsung rencana menu {$menu->menu_code} ({$menu->menu_name}) target {$menu->target_portions} porsi untuk tanggal {$menu->operational_date->format('d/m/Y')}."
+                : "Ahli Gizi mengajukan rencana menu {$menu->menu_code} ({$menu->menu_name}) target {$menu->target_portions} porsi untuk tanggal {$menu->operational_date->format('d/m/Y')}.";
+
             ActivityLog::record(
                 'create_menu',
                 'menu_planning',
-                "Ahli Gizi mengajukan rencana menu {$menu->menu_code} ({$menu->menu_name}) target {$menu->target_portions} porsi untuk tanggal {$menu->operational_date->format('d/m/Y')}."
+                $logMessage
             );
         });
 
+        $flashMessage = $isAdmin
+            ? 'Rencana Menu Harian baru berhasil ditetapkan dan langsung disetujui oleh Administrator Pusat.'
+            : 'Rencana Menu Harian baru berhasil diajukan dan diteruskan ke Akuntan untuk verifikasi PAGU.';
+
         return redirect()->route('menu-planning.index')
-            ->with('success', 'Rencana Menu Harian baru berhasil diajukan dan diteruskan ke Akuntan untuk verifikasi PAGU.');
+            ->with('success', $flashMessage);
     }
 
     /**

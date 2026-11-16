@@ -76,16 +76,16 @@ Route::middleware('auth')->group(function () {
             ->middleware('role:admin')
             ->name('production-inventory.destroy-ingredient');
         Route::post('/production-inventory/transaction', [ProductionInventoryController::class, 'storeTransaction'])
-            ->middleware('role:admin,asisten_lapangan,akuntan')
+            ->middleware('role:admin,asisten_lapangan,akuntan,ahli_gizi')
             ->name('production-inventory.transaction');
         Route::post('/production-inventory/run', [ProductionInventoryController::class, 'storeProductionRun'])
             ->middleware('role:admin,kepala_dapur,ahli_gizi')
             ->name('production-inventory.store-run');
         Route::post('/production-inventory/{productionRun}/update', [ProductionInventoryController::class, 'updateProduction'])
-            ->middleware('role:admin,kepala_dapur,asisten_lapangan')
+            ->middleware('role:admin,kepala_dapur,asisten_lapangan,ahli_gizi')
             ->name('production-inventory.update');
     });
-
+    
     // 4. Quality Control: Keamanan Pangan HACCP & Suhu Pangan (Ahli Gizi, Kepala Dapur, Admin)
     Route::middleware('role:admin,ahli_gizi,kepala_dapur,asisten_lapangan')->group(function () {
         Route::get('/quality-control', [QualityControlController::class, 'index'])->name('quality-control.index');

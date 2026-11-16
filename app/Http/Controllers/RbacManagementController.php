@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -104,7 +105,7 @@ class RbacManagementController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:25'],
-            'role' => ['required', 'string'],
+            'role' => ['required', new Enum(UserRole::class)],
             'password' => ['required', Password::min(8)],
             'beneficiary_institution_id' => ['nullable', 'exists:beneficiary_institutions,id'],
         ]);
@@ -135,7 +136,7 @@ class RbacManagementController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email,' . $user->id],
             'phone' => ['nullable', 'string', 'max:25'],
-            'role' => ['required', 'string'],
+            'role' => ['required', new Enum(UserRole::class)],
             'password' => ['nullable', Password::min(8)],
             'beneficiary_institution_id' => ['nullable', 'exists:beneficiary_institutions,id'],
         ]);

@@ -12,7 +12,7 @@ class EnsureUserHasRole
     {
         $user = $request->user();
 
-        if (! $user || ! $user->is_active) {
+        if (! $user) {
             return redirect()->route('login')->with('error', 'Silakan masuk terlebih dahulu.');
         }
 
@@ -26,4 +26,3 @@ class EnsureUserHasRole
         return $next($request);
     }
 }
-
