@@ -176,14 +176,18 @@ class DashboardController extends Controller
         // 2. Khusus Akuntan SPPG
         $pendingPaguMenus = DailyMenu::whereIn('status', ['draft', 'pending_budget_review'])
             ->where(function ($q) {
-                $q->where('pagu_status', 'menunggu_review')
+                $q->whereIn('pagu_status', ['pending', 'menunggu_review'])
                   ->orWhereNull('pagu_status');
             })->latest()->get();
         $paguCompliantCount = DailyMenu::where('pagu_status', 'sesuai_pagu')->count();
 
         // 3. Khusus Kepala Dapur
         $pendingApprovalMenus = DailyMenu::where('status', 'pending_approval')->latest()->get();
-        $activeKitchenRuns = ProductionRun::with(['dailyMenu', 'qcInspection'])->whereIn('status', ['in_progress', 'completed'])->latest()->take(5)->get();
+        $activeKitchenRuns = ProductionRun::with(['dailyMenu', 'qcInspection'])
+            ->whereIn('status', ['scheduled', 'cooking', 'qc_inspection', 'packaging'])
+            ->latest()
+            ->take(5)
+            ->get();
 
         // 4. Khusus Asisten Lapangan
         $pendingShipments = Delivery::with('institution')->where('status', 'preparing')->latest()->get();
@@ -290,9 +294,10 @@ class DashboardController extends Controller
             ->get();
         foreach ($menus as $m) {
             $results[] = [
-                'type' => 'Menu Gizi',
+                'category' => 'Menu Gizi',
+                'badge' => $m->status_label,
                 'title' => $m->menu_name,
-                'subtitle' => $m->menu_code . ' • ' . $m->target_portions . ' Porsi • ' . $m->operational_date->format('d/m/Y'),
+                'subtitle' => $m->menu_code . ' • ' . $m->target_portions . ' Porsi • ' . ($m->operational_date?->format('d/m/Y') ?? '-'),
                 'url' => route('menu-planning.index', ['search' => $m->menu_code]),
             ];
         }
@@ -305,7 +310,8 @@ class DashboardController extends Controller
             ->get();
         foreach ($institutions as $inst) {
             $results[] = [
-                'type' => 'Mitra Penerima',
+                'category' => 'Mitra Penerima',
+                'badge' => strtoupper(str_replace('_', ' ', $inst->type ?? 'MITRA')),
                 'title' => $inst->name,
                 'subtitle' => $inst->code . ' • ' . $inst->default_quota . ' Porsi • PIC: ' . ($inst->pic_name ?? '-'),
                 'url' => route('distribution.index', ['institution_id' => $inst->id]),
@@ -319,7 +325,8 @@ class DashboardController extends Controller
             ->get();
         foreach ($ingredients as $ing) {
             $results[] = [
-                'type' => 'Bahan Baku Gudang',
+                'category' => 'Bahan Baku Gudang',
+                'badge' => $ing->isLowStock() ? 'Stok Menipis' : 'Stok Aman',
                 'title' => $ing->name,
                 'subtitle' => $ing->sku . ' • Stok: ' . $ing->current_stock . ' ' . $ing->unit,
                 'url' => route('production-inventory.index', ['search' => $ing->sku]),
@@ -334,9 +341,10 @@ class DashboardController extends Controller
             ->get();
         foreach ($deliveries as $deliv) {
             $results[] = [
-                'type' => 'Surat Jalan Distribusi',
+                'category' => 'Surat Jalan Distribusi',
+                'badge' => strtoupper(str_replace('_', ' ', $deliv->status)),
                 'title' => $deliv->waybill_number,
-                'subtitle' => ($deliv->institution->name ?? '') . ' • ' . $deliv->dispatched_portions . ' Porsi • ' . strtoupper($deliv->status),
+                'subtitle' => ($deliv->institution?->name ?? '-') . ' • ' . $deliv->dispatched_portions . ' Porsi • ' . strtoupper($deliv->status),
                 'url' => route('distribution.index', ['search' => $deliv->waybill_number]),
             ];
         }
@@ -349,9 +357,10 @@ class DashboardController extends Controller
             ->get();
         foreach ($tickets as $tkt) {
             $results[] = [
-                'type' => 'Tiket Keluhan',
+                'category' => 'Tiket Keluhan',
+                'badge' => strtoupper($tkt->severity),
                 'title' => $tkt->ticket_number . ' - ' . $tkt->categoryLabel(),
-                'subtitle' => $tkt->institution->name . ' • Keparahan: ' . strtoupper($tkt->severity),
+                'subtitle' => ($tkt->institution?->name ?? '-') . ' • Keparahan: ' . strtoupper($tkt->severity),
                 'url' => route('distribution.index', ['search' => $tkt->ticket_number]),
             ];
         }
