@@ -22,6 +22,19 @@ use Illuminate\View\View;
 
 class ReportController extends Controller
 {
+    private function writeCsvRow($output, array $row): void
+    {
+        $sanitized = array_map(function ($cell) {
+            if (is_string($cell) && $cell !== '' && in_array($cell[0], ['=', '+', '-', '@'], true)) {
+                return "'" . $cell;
+            }
+
+            return $cell;
+        }, $row);
+
+        fputcsv($output, $sanitized);
+    }
+
     /**
      * Halaman Utama Pusat Laporan & Cetak Rekapitulasi Operasional MBG (Dedicated Page)
      */
@@ -217,18 +230,18 @@ class ReportController extends Controller
 
     private function generateDailyOperationalCsv($output, Carbon $date): void
     {
-        fputcsv($output, ['SATUAN PELAYANAN PEMENUHAN GIZI (SPPG) SUNGAI SELAYUR 1 - KECAMATAN KALIDONI']);
-        fputcsv($output, ['LAPORAN HARIAN OPERASIONAL PROGRAM MAKAN BERGIZI GRATIS (MBG)']);
-        fputcsv($output, ['Tanggal Operasional', $date->translatedFormat('d F Y')]);
-        fputcsv($output, ['Total Kuota Penerima Manfaat', '1.414 Porsi (5 Sekolah & 2 Posyandu)']);
-        fputcsv($output, ['Relawan Dapur Bertugas', '35 Relawan']);
-        fputcsv($output, []);
+        $this->writeCsvRow($output, ['SATUAN PELAYANAN PEMENUHAN GIZI (SPPG) SUNGAI SELAYUR 1 - KECAMATAN KALIDONI']);
+        $this->writeCsvRow($output, ['LAPORAN HARIAN OPERASIONAL PROGRAM MAKAN BERGIZI GRATIS (MBG)']);
+        $this->writeCsvRow($output, ['Tanggal Operasional', $date->translatedFormat('d F Y')]);
+        $this->writeCsvRow($output, ['Total Kuota Penerima Manfaat', '1.414 Porsi (5 Sekolah & 2 Posyandu)']);
+        $this->writeCsvRow($output, ['Relawan Dapur Bertugas', '35 Relawan']);
+        $this->writeCsvRow($output, []);
 
         $menu = DailyMenu::with(['nutritionist', 'headOfKitchen', 'accountant'])->whereDate('operational_date', $date)->first();
         if ($menu) {
-            fputcsv($output, ['=== 1. PERENCANAAN MENU & VALIDASI PAGU ===']);
-            fputcsv($output, ['Kode Menu', 'Nama Menu', 'Kategori', 'Target Porsi', 'Estimasi Biaya/Porsi', 'Status PAGU', 'Status Approval']);
-            fputcsv($output, [
+            $this->writeCsvRow($output, ['=== 1. PERENCANAAN MENU & VALIDASI PAGU ===']);
+            $this->writeCsvRow($output, ['Kode Menu', 'Nama Menu', 'Kategori', 'Target Porsi', 'Estimasi Biaya/Porsi', 'Status PAGU', 'Status Approval']);
+            $this->writeCsvRow($output, [
                 $menu->menu_code,
                 $menu->menu_name,
                 strtoupper($menu->recipient_category ?? 'siswa'),
@@ -237,16 +250,16 @@ class ReportController extends Controller
                 strtoupper($menu->pagu_status ?? 'pending'),
                 strtoupper($menu->status),
             ]);
-            fputcsv($output, []);
+            $this->writeCsvRow($output, []);
         }
 
-        fputcsv($output, ['=== 2. DISTRIBUSI & KONFIRMASI PENERIMAAN 1.414 PORSI ===']);
-        fputcsv($output, ['Nomor Surat Jalan', 'Mitra Penerima', 'Tipe', 'Porsi Alokasi', 'Porsi Kirim', 'Porsi Diterima Baik', 'Selisih Porsi', 'Status Pengiriman', 'Uji Rasa', 'Suhu Tiba (°C)', 'Kelayakan Konsumsi']);
+        $this->writeCsvRow($output, ['=== 2. DISTRIBUSI & KONFIRMASI PENERIMAAN 1.414 PORSI ===']);
+        $this->writeCsvRow($output, ['Nomor Surat Jalan', 'Mitra Penerima', 'Tipe', 'Porsi Alokasi', 'Porsi Kirim', 'Porsi Diterima Baik', 'Selisih Porsi', 'Status Pengiriman', 'Uji Rasa', 'Suhu Tiba (°C)', 'Kelayakan Konsumsi']);
 
         $deliveries = Delivery::with(['institution', 'confirmation'])->latest('id')->take(20)->get();
         foreach ($deliveries as $d) {
             $c = $d->confirmation;
-            fputcsv($output, [
+            $this->writeCsvRow($output, [
                 $d->waybill_number,
                 $d->institution->name,
                 strtoupper($d->institution->type),
@@ -264,15 +277,15 @@ class ReportController extends Controller
 
     private function generateStockVarianceCsv($output): void
     {
-        fputcsv($output, ['LAPORAN PERSEDIAAN BAHAN BAKU & MUTASI GUDANG SPPG SUNGAI SELAYUR 1']);
-        fputcsv($output, []);
-        fputcsv($output, ['SKU', 'Nama Bahan Baku', 'Kategori', 'Stok Saat Ini', 'Satuan', 'Batas Minimum', 'Harga Satuan (Rp)', 'Total Valuasi (Rp)', 'Status Persediaan']);
+        $this->writeCsvRow($output, ['LAPORAN PERSEDIAAN BAHAN BAKU & MUTASI GUDANG SPPG SUNGAI SELAYUR 1']);
+        $this->writeCsvRow($output, []);
+        $this->writeCsvRow($output, ['SKU', 'Nama Bahan Baku', 'Kategori', 'Stok Saat Ini', 'Satuan', 'Batas Minimum', 'Harga Satuan (Rp)', 'Total Valuasi (Rp)', 'Status Persediaan']);
 
         $ingredients = Ingredient::orderBy('category')->orderBy('name')->get();
         foreach ($ingredients as $i) {
             $valuation = $i->current_stock * $i->unit_cost;
             $status = $i->current_stock <= $i->min_stock_threshold ? 'PERLU RESTOCK' : 'AMAN';
-            fputcsv($output, [
+            $this->writeCsvRow($output, [
                 $i->sku,
                 $i->name,
                 ucwords(str_replace('_', ' ', $i->category)),
@@ -288,13 +301,13 @@ class ReportController extends Controller
 
     private function generateQcApdCsv($output): void
     {
-        fputcsv($output, ['LAPORAN KEAMANAN PANGAN HACCP & KEPATUHAN 5 APD 35 RELAWAN DAPUR']);
-        fputcsv($output, []);
-        fputcsv($output, ['Kode Sampel Arsip', 'Tanggal Audit', 'Suhu Masak (>=75°C)', 'Suhu Holding (>=60°C)', 'Suhu Pra-Distribusi', 'Relawan Hadir', 'Skor Kepatuhan APD (%)', 'Sampel 2x24 Jam', 'Status Kelulusan', 'Tindak Lanjut']);
+        $this->writeCsvRow($output, ['LAPORAN KEAMANAN PANGAN HACCP & KEPATUHAN 5 APD 35 RELAWAN DAPUR']);
+        $this->writeCsvRow($output, []);
+        $this->writeCsvRow($output, ['Kode Sampel Arsip', 'Tanggal Audit', 'Suhu Masak (>=75°C)', 'Suhu Holding (>=60°C)', 'Suhu Pra-Distribusi', 'Relawan Hadir', 'Skor Kepatuhan APD (%)', 'Sampel 2x24 Jam', 'Status Kelulusan', 'Tindak Lanjut']);
 
         $inspections = QcInspection::with('productionRun.dailyMenu')->latest('inspected_at')->get();
         foreach ($inspections as $q) {
-            fputcsv($output, [
+            $this->writeCsvRow($output, [
                 $q->food_sample_code ?? '-',
                 $q->inspected_at->format('d/m/Y H:i'),
                 $q->cooking_core_temp_c . ' °C',
@@ -311,14 +324,14 @@ class ReportController extends Controller
 
     private function generateDistributionCsv($output): void
     {
-        fputcsv($output, ['LAPORAN PENGIRIMAN & UJI ORGANOLEPTIK MITRA SEKOLAH & POSYANDU']);
-        fputcsv($output, []);
-        fputcsv($output, ['No Surat Jalan', 'Tujuan Mitra', 'Armada', 'Porsi Kirim', 'Porsi Baik', 'Selisih', 'Jam Berangkat', 'Jam Tiba', 'Aroma', 'Rasa', 'Warna', 'Tekstur', 'Suhu (°C)', 'Catatan Lapangan']);
+        $this->writeCsvRow($output, ['LAPORAN PENGIRIMAN & UJI ORGANOLEPTIK MITRA SEKOLAH & POSYANDU']);
+        $this->writeCsvRow($output, []);
+        $this->writeCsvRow($output, ['No Surat Jalan', 'Tujuan Mitra', 'Armada', 'Porsi Kirim', 'Porsi Baik', 'Selisih', 'Jam Berangkat', 'Jam Tiba', 'Aroma', 'Rasa', 'Warna', 'Tekstur', 'Suhu (°C)', 'Catatan Lapangan']);
 
         $deliveries = Delivery::with(['institution', 'confirmation'])->latest('id')->get();
         foreach ($deliveries as $d) {
             $c = $d->confirmation;
-            fputcsv($output, [
+            $this->writeCsvRow($output, [
                 $d->waybill_number,
                 $d->institution->name,
                 $d->vehicle_plate_number ?? '-',
@@ -339,13 +352,13 @@ class ReportController extends Controller
 
     private function generateComplaintsCsv($output): void
     {
-        fputcsv($output, ['REKAPITULASI TIKET KELUHAN LAPORAN SEKOLAH & TINDAK LANJUT']);
-        fputcsv($output, []);
-        fputcsv($output, ['Nomor Tiket', 'Sekolah / Posyandu', 'Pelapor', 'Kategori Keluhan', 'Tingkat Keparahan', 'Deskripsi Masalah', 'Status', 'Ditangani Oleh', 'Tindakan Penyelesaian', 'Tanggal Selesai']);
+        $this->writeCsvRow($output, ['REKAPITULASI TIKET KELUHAN LAPORAN SEKOLAH & TINDAK LANJUT']);
+        $this->writeCsvRow($output, []);
+        $this->writeCsvRow($output, ['Nomor Tiket', 'Sekolah / Posyandu', 'Pelapor', 'Kategori Keluhan', 'Tingkat Keparahan', 'Deskripsi Masalah', 'Status', 'Ditangani Oleh', 'Tindakan Penyelesaian', 'Tanggal Selesai']);
 
         $tickets = ComplaintTicket::with(['institution', 'reporter', 'resolver'])->latest('id')->get();
         foreach ($tickets as $t) {
-            fputcsv($output, [
+            $this->writeCsvRow($output, [
                 $t->ticket_number,
                 $t->institution->name,
                 $t->reporter->name ?? 'PIC Sekolah',
@@ -382,7 +395,7 @@ class ReportController extends Controller
                 <td colspan="8" style="font-weight:bold; font-size:12pt; padding-top:10px;">LAPORAN OPERASIONAL HARIAN PROGRAM MAKAN BERGIZI GRATIS (MBG)</td>
             </tr>
             <tr>
-                <td colspan="8" style="color:#475569;">Tanggal Operasional: <strong>' . $date->translatedFormat('l, d F Y') . '</strong> | Kuota: <strong>1.414 Porsi</strong> (5 Sekolah & 2 Posyandu) | <strong>35 Relawan Dapur</strong></td>
+                <td colspan="8" style="color:#475569;">Tanggal Operasional: <strong>' . htmlspecialchars($date->translatedFormat('l, d F Y') ?? '', ENT_QUOTES, 'UTF-8') . '</strong> | Kuota: <strong>1.414 Porsi</strong> (5 Sekolah & 2 Posyandu) | <strong>35 Relawan Dapur</strong></td>
             </tr>
         </table>';
 
@@ -400,13 +413,13 @@ class ReportController extends Controller
                     <th>Status Approval</th>
                 </tr>
                 <tr>
-                    <td>' . $menu->menu_code . '</td>
-                    <td><strong>' . $menu->menu_name . '</strong></td>
-                    <td>' . strtoupper($menu->recipient_category ?? 'siswa') . '</td>
+                    <td>' . htmlspecialchars($menu->menu_code ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                    <td><strong>' . htmlspecialchars($menu->menu_name ?? '', ENT_QUOTES, 'UTF-8') . '</strong></td>
+                    <td>' . htmlspecialchars(strtoupper($menu->recipient_category ?? 'siswa'), ENT_QUOTES, 'UTF-8') . '</td>
                     <td class="num-int">' . number_format($menu->target_portions) . '</td>
                     <td class="num-curr">Rp ' . number_format($menu->estimated_cost_per_portion, 0, ',', '.') . '</td>
-                    <td class="badge-pass">' . strtoupper($menu->pagu_status ?? 'SESUAI') . '</td>
-                    <td>' . strtoupper($menu->status) . '</td>
+                    <td class="badge-pass">' . htmlspecialchars(strtoupper($menu->pagu_status ?? 'SESUAI'), ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars(strtoupper($menu->status ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
                 </tr>
             </table>';
         }
@@ -433,16 +446,16 @@ class ReportController extends Controller
             $badgeClass = ($c?->is_fit_for_consumption ?? true) ? 'badge-pass' : 'badge-fail';
             $content .= '
             <tr>
-                <td style="font-family:monospace; font-weight:bold;">' . $d->waybill_number . '</td>
-                <td><strong>' . $d->institution->name . '</strong></td>
-                <td>' . strtoupper($d->institution->type) . '</td>
+                <td style="font-family:monospace; font-weight:bold;">' . htmlspecialchars($d->waybill_number ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td><strong>' . htmlspecialchars($d->institution?->name ?? '', ENT_QUOTES, 'UTF-8') . '</strong></td>
+                <td>' . htmlspecialchars(strtoupper($d->institution?->type ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-int">' . number_format($d->dispatched_portions) . '</td>
                 <td class="num-int">' . ($c ? number_format($c->received_good_portions) : '-') . '</td>
-                <td class="num-int">' . ($c ? $c->reception_variance : '-') . '</td>
-                <td>' . ($c?->taste_test ?? '-') . '</td>
+                <td class="num-int">' . htmlspecialchars((string) ($c ? $c->reception_variance : '-'), ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($c?->taste_test ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-dec">' . ($c?->arrival_temperature_c ? number_format($c->arrival_temperature_c, 1) . ' °C' : '-') . '</td>
-                <td class="' . $badgeClass . '">' . $fit . '</td>
-                <td>' . strtoupper(str_replace('_', ' ', $d->status)) . '</td>
+                <td class="' . $badgeClass . '">' . htmlspecialchars($fit, ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars(strtoupper(str_replace('_', ' ', $d->status ?? '')), ENT_QUOTES, 'UTF-8') . '</td>
             </tr>';
         }
         $content .= '</table>';
@@ -468,13 +481,13 @@ class ReportController extends Controller
             };
             $content .= '
             <tr>
-                <td style="font-family:monospace; font-weight:bold;">' . ($q->food_sample_code ?? '-') . '</td>
+                <td style="font-family:monospace; font-weight:bold;">' . htmlspecialchars($q->food_sample_code ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-dec">' . number_format($q->cooking_core_temp_c, 1) . ' °C</td>
                 <td class="num-dec">' . number_format($q->holding_temp_c, 1) . ' °C</td>
                 <td class="num-dec">' . number_format($q->pre_dispatch_temp_c, 1) . ' °C</td>
                 <td>' . ($q->food_sample_retained ? '✓ Tersimpan di Chiller' : 'Belum') . '</td>
-                <td class="' . $verdictClass . '">' . strtoupper($q->qc_verdict) . '</td>
-                <td>' . ($q->corrective_action ?? '-') . '</td>
+                <td class="' . $verdictClass . '">' . htmlspecialchars(strtoupper($q->qc_verdict ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($q->corrective_action ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
             </tr>';
         }
         $content .= '</table>';
@@ -496,12 +509,12 @@ class ReportController extends Controller
             foreach ($apdInspections as $apd) {
                 $content .= '
                 <tr>
-                    <td>' . $apd->inspection_date->format('d/m/Y') . ' - Shift ' . $apd->shift . '</td>
-                    <td class="num-int">' . $apd->volunteers_checked . ' / ' . $apd->total_volunteers . '</td>
-                    <td class="num-int">' . $apd->apron_compliant_count . '</td>
-                    <td class="num-int">' . $apd->hairnet_compliant_count . '</td>
-                    <td class="num-int">' . $apd->mask_compliant_count . '</td>
-                    <td class="num-int">' . $apd->gloves_compliant_count . '</td>
+                    <td>' . htmlspecialchars($apd->inspection_date->format('d/m/Y') . ' - Shift ' . $apd->shift, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars($apd->volunteers_checked . ' / ' . $apd->total_volunteers, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $apd->apron_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $apd->hairnet_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $apd->mask_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $apd->gloves_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
                     <td class="badge-pass">' . number_format($apd->compliance_percentage, 1) . '%</td>
                 </tr>';
             }
@@ -519,7 +532,7 @@ class ReportController extends Controller
         $content = '
         <table>
             <tr><td colspan="7" class="kop-inst">SPPG SUNGAI SELAYUR 1 - LAPORAN PERSEDIAAN GUDANG</td></tr>
-            <tr><td colspan="7" class="kop-sub">Tanggal Cetak: ' . $date->translatedFormat('d F Y') . ' | Total Valuasi: Rp ' . number_format($totalValuation, 0, ',', '.') . '</td></tr>
+            <tr><td colspan="7" class="kop-sub">Tanggal Cetak: ' . htmlspecialchars($date->translatedFormat('d F Y') ?? '', ENT_QUOTES, 'UTF-8') . ' | Total Valuasi: Rp ' . number_format($totalValuation, 0, ',', '.') . '</td></tr>
         </table>
         <table>
             <tr>
@@ -540,14 +553,14 @@ class ReportController extends Controller
 
             $content .= '
             <tr>
-                <td style="font-family:monospace; font-weight:bold;">' . $i->sku . '</td>
-                <td><strong>' . $i->name . '</strong></td>
-                <td>' . ucwords(str_replace('_', ' ', $i->category)) . '</td>
-                <td class="num-dec">' . number_format($i->current_stock, 1) . ' ' . $i->unit . '</td>
-                <td class="num-dec">' . number_format($i->min_stock_threshold, 1) . ' ' . $i->unit . '</td>
+                <td style="font-family:monospace; font-weight:bold;">' . htmlspecialchars($i->sku ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td><strong>' . htmlspecialchars($i->name ?? '', ENT_QUOTES, 'UTF-8') . '</strong></td>
+                <td>' . htmlspecialchars(ucwords(str_replace('_', ' ', $i->category ?? '')), ENT_QUOTES, 'UTF-8') . '</td>
+                <td class="num-dec">' . number_format($i->current_stock, 1) . ' ' . htmlspecialchars($i->unit ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td class="num-dec">' . number_format($i->min_stock_threshold, 1) . ' ' . htmlspecialchars($i->unit ?? '', ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-curr">Rp ' . number_format($i->unit_cost, 0, ',', '.') . '</td>
                 <td class="num-curr">Rp ' . number_format($val, 0, ',', '.') . '</td>
-                <td class="' . $badgeClass . '">' . $status . '</td>
+                <td class="' . $badgeClass . '">' . htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '</td>
             </tr>';
         }
 
@@ -585,13 +598,13 @@ class ReportController extends Controller
             };
             $content .= '
             <tr>
-                <td style="font-family:monospace; font-weight:bold;">' . ($q->food_sample_code ?? '-') . '</td>
-                <td>' . $q->inspected_at->format('d/m/Y H:i') . '</td>
+                <td style="font-family:monospace; font-weight:bold;">' . htmlspecialchars($q->food_sample_code ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($q->inspected_at?->format('d/m/Y H:i') ?? '', ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-dec">' . number_format($q->cooking_core_temp_c, 1) . ' °C</td>
                 <td class="num-dec">' . number_format($q->holding_temp_c, 1) . ' °C</td>
                 <td class="num-dec">' . number_format($q->pre_dispatch_temp_c, 1) . ' °C</td>
                 <td>' . ($q->food_sample_retained ? '✓ Disimpan di Chiller' : 'Belum') . '</td>
-                <td class="' . $verdictClass . '">' . strtoupper($q->qc_verdict) . '</td>
+                <td class="' . $verdictClass . '">' . htmlspecialchars(strtoupper($q->qc_verdict ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
             </tr>';
         }
         $content .= '</table>';
@@ -614,13 +627,13 @@ class ReportController extends Controller
             foreach ($apdInspections as $a) {
                 $content .= '
                 <tr>
-                    <td>' . $a->inspection_date->format('d/m/Y') . ' - Shift ' . $a->shift . '</td>
-                    <td class="num-int">' . $a->volunteers_checked . ' / ' . $a->total_volunteers . '</td>
-                    <td class="num-int">' . $a->apron_compliant_count . '</td>
-                    <td class="num-int">' . $a->hairnet_compliant_count . '</td>
-                    <td class="num-int">' . $a->mask_compliant_count . '</td>
-                    <td class="num-int">' . $a->gloves_compliant_count . '</td>
-                    <td class="num-int">' . $a->safety_shoes_compliant_count . '</td>
+                    <td>' . htmlspecialchars($a->inspection_date->format('d/m/Y') . ' - Shift ' . $a->shift, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars($a->volunteers_checked . ' / ' . $a->total_volunteers, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $a->apron_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $a->hairnet_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $a->mask_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $a->gloves_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="num-int">' . htmlspecialchars((string) $a->safety_shoes_compliant_count, ENT_QUOTES, 'UTF-8') . '</td>
                     <td class="badge-pass">' . number_format($a->compliance_percentage, 1) . '%</td>
                 </tr>';
             }
@@ -657,15 +670,15 @@ class ReportController extends Controller
             $c = $d->confirmation;
             $content .= '
             <tr>
-                <td style="font-family:monospace; font-weight:bold;">' . $d->waybill_number . '</td>
-                <td><strong>' . $d->institution->name . '</strong></td>
-                <td>' . ($d->vehicle_plate_number ?? '-') . '</td>
+                <td style="font-family:monospace; font-weight:bold;">' . htmlspecialchars($d->waybill_number ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td><strong>' . htmlspecialchars($d->institution?->name ?? '', ENT_QUOTES, 'UTF-8') . '</strong></td>
+                <td>' . htmlspecialchars($d->vehicle_plate_number ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-int">' . number_format($d->dispatched_portions) . '</td>
                 <td class="num-int">' . ($c ? number_format($c->received_good_portions) : '-') . '</td>
-                <td class="num-int">' . ($c ? $c->reception_variance : '-') . '</td>
-                <td>' . ($d->departed_at?->format('H:i') ?? '-') . '</td>
-                <td>' . ($d->arrived_at?->format('H:i') ?? '-') . '</td>
-                <td>' . ($c ? 'Rasa: ' . $c->taste_test . ' | Aroma: ' . $c->aroma_test : 'Menunggu Konfirmasi') . '</td>
+                <td class="num-int">' . htmlspecialchars((string) ($c ? $c->reception_variance : '-'), ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($d->departed_at?->format('H:i') ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($d->arrived_at?->format('H:i') ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($c ? 'Rasa: ' . $c->taste_test . ' | Aroma: ' . $c->aroma_test : 'Menunggu Konfirmasi', ENT_QUOTES, 'UTF-8') . '</td>
                 <td class="num-dec">' . ($c?->arrival_temperature_c ? number_format($c->arrival_temperature_c, 1) . ' °C' : '-') . '</td>
             </tr>';
         }
@@ -703,14 +716,14 @@ class ReportController extends Controller
             };
             $content .= '
             <tr>
-                <td style="font-family:monospace; font-weight:bold;">' . $t->ticket_number . '</td>
-                <td><strong>' . $t->institution->name . '</strong></td>
-                <td>' . $t->categoryLabel() . '</td>
-                <td>' . strtoupper($t->severity) . '</td>
-                <td>' . htmlspecialchars($t->description) . '</td>
-                <td class="' . $badgeClass . '">' . strtoupper(str_replace('_', ' ', $t->status)) . '</td>
-                <td>' . ($t->resolver?->name ?? 'Belum Ditugaskan') . '</td>
-                <td>' . htmlspecialchars($t->resolution_notes ?? '-') . '</td>
+                <td style="font-family:monospace; font-weight:bold;">' . htmlspecialchars($t->ticket_number ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td><strong>' . htmlspecialchars($t->institution?->name ?? '', ENT_QUOTES, 'UTF-8') . '</strong></td>
+                <td>' . htmlspecialchars($t->categoryLabel() ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars(strtoupper($t->severity ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($t->description ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td class="' . $badgeClass . '">' . htmlspecialchars(strtoupper(str_replace('_', ' ', $t->status ?? '')), ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($t->resolver?->name ?? 'Belum Ditugaskan', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($t->resolution_notes ?? '-', ENT_QUOTES, 'UTF-8') . '</td>
             </tr>';
         }
         $content .= '</table>';
@@ -816,17 +829,17 @@ class ReportController extends Controller
 
     private function generateRolePerformanceCsv($output, Carbon $date): void
     {
-        fputcsv($output, ['SATUAN PELAYANAN PEMENUHAN GIZI (SPPG) SUNGAI SELAYUR 1 - KECAMATAN KALIDONI']);
-        fputcsv($output, ['LAPORAN EVALUASI KINERJA & AKUNTABILITAS 7 PERAN PENGGUNA (ROLE PERFORMANCE REPORT)']);
-        fputcsv($output, ['Tanggal Evaluasi', $date->translatedFormat('d F Y')]);
-        fputcsv($output, ['Standar Kepatuhan', 'SOP Badan Gizi Nasional (BGN) RI']);
-        fputcsv($output, []);
-        fputcsv($output, ['No', 'Peran / Jabatan', 'Nama Personel', 'Tugas Pokok & Modul Wewenang', 'Metrik Output Real-Time', 'Indikator Kepatuhan SOP BGN', 'Status Evaluasi', 'Nilai Akuntabilitas']);
+        $this->writeCsvRow($output, ['SATUAN PELAYANAN PEMENUHAN GIZI (SPPG) SUNGAI SELAYUR 1 - KECAMATAN KALIDONI']);
+        $this->writeCsvRow($output, ['LAPORAN EVALUASI KINERJA & AKUNTABILITAS 7 PERAN PENGGUNA (ROLE PERFORMANCE REPORT)']);
+        $this->writeCsvRow($output, ['Tanggal Evaluasi', $date->translatedFormat('d F Y')]);
+        $this->writeCsvRow($output, ['Standar Kepatuhan', 'SOP Badan Gizi Nasional (BGN) RI']);
+        $this->writeCsvRow($output, []);
+        $this->writeCsvRow($output, ['No', 'Peran / Jabatan', 'Nama Personel', 'Tugas Pokok & Modul Wewenang', 'Metrik Output Real-Time', 'Indikator Kepatuhan SOP BGN', 'Status Evaluasi', 'Nilai Akuntabilitas']);
 
         $rolesData = $this->buildRolePerformanceData($date);
         $no = 1;
         foreach ($rolesData as $r) {
-            fputcsv($output, [
+            $this->writeCsvRow($output, [
                 $no++,
                 $r['role_name'],
                 $r['personnel'],
@@ -850,7 +863,7 @@ class ReportController extends Controller
             <div class="kop-sub" style="font-weight:bold; font-size:12pt; color:#071E49; margin-top:5px;">
                 LAPORAN EVALUASI KINERJA & AKUNTABILITAS 7 PERAN PENGGUNA (ROLE AUDIT & PERFORMANCE)
             </div>
-            <div class="kop-sub">Tanggal Evaluasi: <strong>' . $date->translatedFormat('l, d F Y') . '</strong> • Standar Akuntabilitas: SOP Badan Gizi Nasional (BGN)</div>
+            <div class="kop-sub">Tanggal Evaluasi: <strong>' . htmlspecialchars($date->translatedFormat('l, d F Y') ?? '', ENT_QUOTES, 'UTF-8') . '</strong> • Standar Akuntabilitas: SOP Badan Gizi Nasional (BGN)</div>
         </div>
 
         <table>
@@ -870,13 +883,13 @@ class ReportController extends Controller
             $content .= '
             <tr>
                 <td style="text-align:center; font-weight:bold;">' . $no++ . '</td>
-                <td><strong>' . $r['role_name'] . '</strong></td>
-                <td>' . $r['personnel'] . '</td>
-                <td>' . $r['primary_task'] . '</td>
-                <td>' . $r['metric_output'] . '</td>
-                <td>' . $r['compliance_sop'] . '</td>
-                <td class="badge-pass">' . $r['status'] . '</td>
-                <td style="text-align:center; font-weight:bold; color:#065F46;">' . $r['score'] . '</td>
+                <td><strong>' . htmlspecialchars($r['role_name'] ?? '', ENT_QUOTES, 'UTF-8') . '</strong></td>
+                <td>' . htmlspecialchars($r['personnel'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($r['primary_task'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($r['metric_output'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td>' . htmlspecialchars($r['compliance_sop'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td class="badge-pass">' . htmlspecialchars($r['status'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>
+                <td style="text-align:center; font-weight:bold; color:#065F46;">' . htmlspecialchars($r['score'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>
             </tr>';
         }
 
@@ -924,7 +937,7 @@ class ReportController extends Controller
                 <x:ExcelWorkbook>
                     <x:ExcelWorksheets>
                         <x:ExcelWorksheet>
-                            <x:Name>' . htmlspecialchars(substr($title, 0, 31)) . '</x:Name>
+                            <x:Name>' . htmlspecialchars(substr($title, 0, 31) ?? '', ENT_QUOTES, 'UTF-8') . '</x:Name>
                             <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
                         </x:ExcelWorksheet>
                     </x:ExcelWorksheets>

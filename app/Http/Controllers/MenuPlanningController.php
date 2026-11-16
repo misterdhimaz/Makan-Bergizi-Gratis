@@ -412,6 +412,10 @@ class MenuPlanningController extends Controller
 
     public function destroy(DailyMenu $dailyMenu): RedirectResponse
     {
+        if (in_array($dailyMenu->status, ['approved', 'in_production', 'completed'])) {
+            return back()->with('error', 'Menu yang telah disetujui atau diproduksi tidak dapat dihapus.');
+        }
+
         $code = $dailyMenu->menu_code;
         $dailyMenu->delete();
 
