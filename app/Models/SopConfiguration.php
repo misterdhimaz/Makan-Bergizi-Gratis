@@ -28,7 +28,7 @@ class SopConfiguration extends Model
     public static function getValue(string $key, mixed $default = null): mixed
     {
         $item = self::where('param_key', $key)->first();
+
         return $item ? $item->param_value : $default;
     }
 }
-

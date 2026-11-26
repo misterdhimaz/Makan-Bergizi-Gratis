@@ -92,4 +92,3 @@ class ApdInspection extends Model
         };
     }
 }
-

@@ -12,14 +12,18 @@ class EnsureUserHasRole
     {
         $user = $request->user();
 
-        if (! $user) {
-            return redirect()->route('login')->with('error', 'Silakan masuk terlebih dahulu.');
+        if (! $user || ! $user->is_active) {
+            return redirect()->route('login.show')->with('error', 'Silakan masuk terlebih dahulu.');
         }
 
         if (! $user->hasRole($roles)) {
+            if ($request->is('admin') || $request->is('admin/*') || $request->expectsJson()) {
+                abort(403, 'Akses ditolak: Peran Anda tidak memiliki izin membuka halaman Administrator.');
+            }
+
             return redirect()->route('dashboard')->with(
                 'error',
-                'Akses Dibatasi: Hak akses Anda (' . $user->role->label() . ') tidak memiliki izin membuka modul tersebut.'
+                'Akses Dibatasi: Hak akses Anda ('.$user->role->label().') tidak memiliki izin membuka modul tersebut.'
             );
         }
 

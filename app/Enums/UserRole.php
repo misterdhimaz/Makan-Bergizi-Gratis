@@ -17,11 +17,22 @@ enum UserRole: string
         return match ($this) {
             self::ADMIN => 'Administrator Sistem',
             self::AHLI_GIZI => 'Ahli Gizi',
-            self::AKUNTAN => 'Akuntan SPPG',
+            self::AKUNTAN => 'Akuntan',
             self::KEPALA_DAPUR => 'Kepala Dapur',
             self::ASISTEN_LAPANGAN => 'Asisten Lapangan',
             self::TIM_DISTRIBUSI => 'Tim Distribusi',
-            self::GURU_PIC => 'Guru PIC / Posyandu',
+            self::GURU_PIC => 'Guru PIC / Sekolah & Posyandu',
+        };
+    }
+
+    /**
+     * Kunci konfigurasi matriks hak akses di config/mbg.php.
+     */
+    public function matrixKey(): string
+    {
+        return match ($this) {
+            self::ADMIN => 'administrator_sistem',
+            default => $this->value,
         };
     }
 
@@ -56,4 +67,3 @@ enum UserRole: string
         return $this->badgeClasses();
     }
 }
-

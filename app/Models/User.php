@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,16 +12,22 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use Auditable, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
+        'username',
         'email',
-        'phone',
         'password',
         'role',
         'beneficiary_institution_id',
+        'location_id',
         'is_active',
+        'must_change_password',
+        'password_expires_at',
+        'failed_login_attempts',
+        'locked_until',
+        'last_login_at',
     ];
 
     protected $hidden = [
@@ -34,7 +41,27 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'must_change_password' => 'boolean',
+            'password_expires_at' => 'datetime',
+            'failed_login_attempts' => 'integer',
+            'locked_until' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
+    }
+
+    public function auditModule(): string
+    {
+        return 'Pengguna & Peran';
+    }
+
+    public function auditTarget(): string
+    {
+        return (string) ($this->username ?: $this->email ?: $this->getKey());
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'location_id');
     }
 
     /**
@@ -46,7 +73,7 @@ class User extends Authenticatable
 
         foreach ($roles as $role) {
             $roleValue = $role instanceof UserRole ? $role->value : $role;
-            if ($this->role->value === $roleValue) {
+            if ($this->role->value === $roleValue || $this->role->label() === $roleValue) {
                 return true;
             }
         }

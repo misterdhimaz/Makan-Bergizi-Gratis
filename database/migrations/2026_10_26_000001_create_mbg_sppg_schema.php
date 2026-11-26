@@ -221,4 +221,3 @@ return new class extends Migration
         Schema::dropIfExists('beneficiary_institutions');
     }
 };
-

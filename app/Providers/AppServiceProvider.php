@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Controllers\AppearanceSettingController;
+use App\Listeners\LogAuthenticationEvents;
 use App\Models\ApdInspection;
 use App\Models\AppSetting;
 use App\Models\BeneficiaryInstitution;
@@ -12,7 +13,11 @@ use App\Models\DeliveryConfirmation;
 use App\Models\Ingredient;
 use App\Models\ProductionRun;
 use App\Models\QcInspection;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +30,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(Login::class, [LogAuthenticationEvents::class, 'handleLogin']);
+        Event::listen(Logout::class, [LogAuthenticationEvents::class, 'handleLogout']);
+        Event::listen(Failed::class, [LogAuthenticationEvents::class, 'handleFailed']);
+
         // Optimasi performa Eloquent di environment produksi
         Model::automaticallyEagerLoadRelationships();
 
@@ -47,7 +56,7 @@ class AppServiceProvider extends ServiceProvider
             $latestApd = ApdInspection::latest('inspection_date')->first();
 
             $pendingMenusCount = DailyMenu::where('status', 'pending_approval')->count();
-            $lowStockItems = Ingredient::whereColumn('current_stock', '<=', 'min_stock_threshold')->get();
+            $lowStockItems = Ingredient::where('current_stock', '<=', 0)->get();
             $activeInstitutionsCount = BeneficiaryInstitution::where('is_active', true)->count();
 
             $deliveriesToday = Delivery::with(['institution', 'confirmation'])
@@ -78,8 +87,8 @@ class AppServiceProvider extends ServiceProvider
             if ($latestQc) {
                 $liveNotifications->push([
                     'color' => $latestQc->qc_verdict === 'passed' ? 'emerald' : 'amber',
-                    'title' => 'QC Suhu Inti Masak ' . $latestQc->cooking_core_temp_c . '°C (' . strtoupper($latestQc->qc_verdict) . ')',
-                    'subtitle' => 'Kode Sampel: ' . $latestQc->food_sample_code . ' • Skor APD: ' . $latestQc->apd_compliance_score . '%',
+                    'title' => 'QC Suhu Inti Masak '.$latestQc->cooking_core_temp_c.'°C ('.strtoupper($latestQc->qc_verdict).')',
+                    'subtitle' => 'Kode Sampel: '.$latestQc->food_sample_code.' • Skor APD: '.$latestQc->apd_compliance_score.'%',
                     'time' => $latestQc->inspected_at->diffForHumans(),
                     'url' => route('quality-control.index'),
                 ]);
@@ -89,8 +98,8 @@ class AppServiceProvider extends ServiceProvider
                 $names = $lowStockItems->pluck('name')->take(2)->implode(', ');
                 $liveNotifications->push([
                     'color' => 'amber',
-                    'title' => $lowStockItems->count() . ' Bahan Baku di Bawah Ambang Minimum',
-                    'subtitle' => $names . ' memerlukan restock segera.',
+                    'title' => $lowStockItems->count().' Bahan Baku di Bawah Ambang Minimum',
+                    'subtitle' => $names.' memerlukan restock segera.',
                     'time' => 'Stok Gudang Real-Time',
                     'url' => route('production-inventory.index'),
                 ]);
@@ -99,7 +108,7 @@ class AppServiceProvider extends ServiceProvider
             if ($pendingMenusCount > 0) {
                 $liveNotifications->push([
                     'color' => 'indigo',
-                    'title' => $pendingMenusCount . ' Jadwal Menu Menunggu Validasi Kepala Dapur',
+                    'title' => $pendingMenusCount.' Jadwal Menu Menunggu Validasi Kepala Dapur',
                     'subtitle' => 'Perlu otorisasi sebelum masuk jadwal produksi.',
                     'time' => 'Perencanaan Menu',
                     'url' => route('menu-planning.index'),
@@ -113,8 +122,8 @@ class AppServiceProvider extends ServiceProvider
             if ($latestConfirmation) {
                 $liveNotifications->push([
                     'color' => 'teal',
-                    'title' => $latestConfirmation->delivery->institution->name . ' Mengonfirmasi Penerimaan',
-                    'subtitle' => number_format($latestConfirmation->received_good_portions) . ' porsi baik • Suhu tiba ' . $latestConfirmation->arrival_temperature_c . '°C',
+                    'title' => $latestConfirmation->delivery->institution->name.' Mengonfirmasi Penerimaan',
+                    'subtitle' => number_format($latestConfirmation->received_good_portions).' porsi baik • Suhu tiba '.$latestConfirmation->arrival_temperature_c.'°C',
                     'time' => $latestConfirmation->confirmed_at->diffForHumans(),
                     'url' => route('distribution.index'),
                 ]);
