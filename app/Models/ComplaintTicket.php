@@ -74,4 +74,3 @@ class ComplaintTicket extends Model
         };
     }
 }
-

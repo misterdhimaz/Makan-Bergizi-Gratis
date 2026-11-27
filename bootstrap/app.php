@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Middleware\BlockAdminOperationalWrite;
+use App\Http\Middleware\EnforceSessionTimeout;
+use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,12 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
-        $middleware->web(append: [
-            \App\Http\Middleware\EnsureUserIsActive::class,
-        ]);
+        $middleware->append(SecurityHeaders::class);
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'role' => EnsureUserHasRole::class,
+            'akun-aktif' => EnsureUserIsActive::class,
+            'wajib-ganti-sandi' => EnsurePasswordChanged::class,
+            'batas-sesi' => EnforceSessionTimeout::class,
+            'anti-operasional-admin' => BlockAdminOperationalWrite::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

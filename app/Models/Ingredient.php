@@ -2,36 +2,48 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ingredient extends Model
 {
-    use HasFactory;
+    use Auditable, HasFactory;
 
     protected $fillable = [
-        'sku',
         'name',
         'category',
         'unit',
         'current_stock',
-        'min_stock_threshold',
         'unit_cost',
+        'supplier_id',
+        'is_active',
     ];
 
     protected function casts(): array
     {
         return [
             'current_stock' => 'decimal:2',
-            'min_stock_threshold' => 'decimal:2',
             'unit_cost' => 'decimal:2',
+            'is_active' => 'boolean',
         ];
+    }
+
+    public function auditModule(): string
+    {
+        return 'Data Master · Daftar Bahan';
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function isLowStock(): bool
     {
-        return $this->current_stock <= $this->min_stock_threshold;
+        return (float) $this->current_stock <= 0;
     }
 
     public function menuItems(): HasMany
@@ -44,4 +56,3 @@ class Ingredient extends Model
         return $this->hasMany(InventoryTransaction::class);
     }
 }
-

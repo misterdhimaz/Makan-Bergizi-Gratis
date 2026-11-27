@@ -59,4 +59,3 @@ class DeliveryConfirmation extends Model
         return $this->belongsTo(User::class, 'confirmed_by');
     }
 }
-

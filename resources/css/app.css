@@ -1,9 +1,146 @@
 @import 'tailwindcss';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import 'material-symbols/outlined.css';
 
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-ground: #F2F2ED;
+    --color-surface: #FFFFFF;
+    --color-surface-subtle: #F7F7F3;
+    --color-surface-muted: #EBEBE4;
+    --color-obsidian: #141513;
+    --color-on-obsidian: #FFFFFF;
+    --color-ink: #181917;
+    --color-ink-muted: #5C5E57;
+    --color-border-soft: #E2E2DA;
+    --color-lime-accent: #EBFA66;
+    --color-on-lime: #141513;
+    --color-success: #15803D;
+    --color-success-soft: #DCFCE7;
+    --color-on-success-soft: #14532D;
+    --color-alert-soft: #FEF3C7;
+    --color-on-alert-soft: #78350F;
+    --color-danger-soft: #FEE2E2;
+    --color-on-danger-soft: #991B1B;
+
+    --font-display: 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+
+    --text-kpi: 28px;
+    --text-kpi--line-height: 34px;
+    --text-kpi--letter-spacing: -0.5px;
+    --text-kpi--font-weight: 600;
+
+    --text-page-title: 24px;
+    --text-page-title--line-height: 32px;
+    --text-page-title--letter-spacing: -0.4px;
+    --text-page-title--font-weight: 600;
+
+    --text-section-title: 16px;
+    --text-section-title--line-height: 22px;
+    --text-section-title--letter-spacing: -0.2px;
+    --text-section-title--font-weight: 600;
+
+    --text-card-title: 14px;
+    --text-card-title--line-height: 20px;
+    --text-card-title--font-weight: 600;
+
+    --text-body-md: 13px;
+    --text-body-md--line-height: 19px;
+    --text-body-md--font-weight: 400;
+
+    --text-label-sm: 12px;
+    --text-label-sm--line-height: 16px;
+    --text-label-sm--font-weight: 500;
+
+    --text-micro: 11px;
+    --text-micro--line-height: 14px;
+    --text-micro--font-weight: 500;
+
+    --radius-sm: 6px;
+    --radius-DEFAULT: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --radius-xl: 22px;
+    --radius-full: 9999px;
+}
+
+@utility p-xs { padding: 4px; }
+@utility p-sm { padding: 8px; }
+@utility p-md { padding: 12px; }
+@utility p-lg { padding: 16px; }
+@utility p-xl { padding: 20px; }
+@utility p-2xl { padding: 24px; }
+
+@utility px-xs { padding-inline: 4px; }
+@utility px-sm { padding-inline: 8px; }
+@utility px-md { padding-inline: 12px; }
+@utility px-lg { padding-inline: 16px; }
+@utility px-xl { padding-inline: 20px; }
+@utility px-2xl { padding-inline: 24px; }
+
+@utility py-xs { padding-block: 4px; }
+@utility py-sm { padding-block: 8px; }
+@utility py-md { padding-block: 12px; }
+@utility py-lg { padding-block: 16px; }
+@utility py-xl { padding-block: 20px; }
+@utility py-2xl { padding-block: 24px; }
+
+@utility pt-xs { padding-top: 4px; }
+@utility pt-sm { padding-top: 8px; }
+@utility pt-md { padding-top: 12px; }
+@utility pt-lg { padding-top: 16px; }
+@utility pt-xl { padding-top: 20px; }
+@utility pt-2xl { padding-top: 24px; }
+
+@utility pb-xs { padding-bottom: 4px; }
+@utility pb-sm { padding-bottom: 8px; }
+@utility pb-md { padding-bottom: 12px; }
+@utility pb-lg { padding-bottom: 16px; }
+@utility pb-xl { padding-bottom: 20px; }
+@utility pb-2xl { padding-bottom: 24px; }
+
+@utility pl-xs { padding-left: 4px; }
+@utility pl-sm { padding-left: 8px; }
+@utility pl-md { padding-left: 12px; }
+@utility pl-lg { padding-left: 16px; }
+
+@utility pr-xs { padding-right: 4px; }
+@utility pr-sm { padding-right: 8px; }
+@utility pr-md { padding-right: 12px; }
+@utility pr-lg { padding-right: 16px; }
+
+@utility gap-xs { gap: 4px; }
+@utility gap-sm { gap: 8px; }
+@utility gap-md { gap: 12px; }
+@utility gap-lg { gap: 16px; }
+@utility gap-xl { gap: 20px; }
+@utility gap-2xl { gap: 24px; }
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    line-height: 1 !important;
+    box-sizing: content-box;
+    overflow: hidden;
+    white-space: nowrap;
+    direction: ltr;
+    vertical-align: middle;
+}
+
+[x-cloak] {
+    display: none !important;
 }

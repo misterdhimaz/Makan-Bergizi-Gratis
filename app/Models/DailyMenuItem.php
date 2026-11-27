@@ -38,4 +38,3 @@ class DailyMenuItem extends Model
         return $this->belongsTo(Ingredient::class);
     }
 }
-
