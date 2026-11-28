@@ -18,9 +18,7 @@ class ConfirmationController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $location = $user?->location_id
-            ? Location::find($user->location_id)
-            : Location::where('is_active', true)->orderBy('id')->first();
+        $location = $user?->location_id ? Location::find($user->location_id) : null;
 
         $today = now('Asia/Jakarta')->toDateString();
 
@@ -53,15 +51,24 @@ class ConfirmationController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $location = $user?->location_id
-            ? Location::findOrFail($user->location_id)
-            : Location::where('is_active', true)->orderBy('id')->firstOrFail();
+        if (! $user?->location_id) {
+            abort(403, 'Akun Guru PIC belum ditautkan ke lokasi sekolah.');
+        }
+
+        $location = Location::findOrFail($user->location_id);
+
+        $today = now('Asia/Jakarta')->toDateString();
 
         $route = DeliveryRoute::query()
             ->where('location_id', $location->id)
-            ->orderByDesc('operational_date')
-            ->orderByDesc('id')
-            ->firstOrFail();
+            ->whereDate('operational_date', $today)
+            ->latest('id')
+            ->first()
+            ?? DeliveryRoute::query()
+                ->where('location_id', $location->id)
+                ->orderByDesc('operational_date')
+                ->orderByDesc('id')
+                ->firstOrFail();
 
         $maxPortions = max(1, (int) ($route->dispatched_portions ?: $location->target_portions ?: 250));
 

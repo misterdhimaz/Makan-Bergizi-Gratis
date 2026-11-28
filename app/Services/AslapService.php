@@ -159,42 +159,44 @@ class AslapService
             abort(409, 'Rute yang sudah Berangkat atau lebih tidak dapat diubah.');
         }
 
-        $dateStr = $route->operational_date?->toDateString() ?? now('Asia/Jakarta')->toDateString();
         $newStart = $data['planned_departure_time'];
         $newEnd = $data['scheduled_arrival_time'];
 
-        $conflict = DeliveryRoute::query()
-            ->whereDate('operational_date', $dateStr)
-            ->where('id', '!=', $route->id)
-            ->where(function ($q) use ($data) {
-                $q->where('courier_name', $data['courier_name'])
-                    ->orWhere('vehicle_plate', $data['vehicle_plate']);
-            })
-            ->get()
-            ->first(function (DeliveryRoute $other) use ($newStart, $newEnd): bool {
-                $otherStart = $other->planned_departure_time
-                    ?? $other->departed_at?->timezone('Asia/Jakarta')->format('H:i');
-                $otherEnd = $other->scheduled_arrival_time;
-
-                if (! $otherStart || ! $otherEnd) {
-                    return false;
-                }
-
-                // Overlap jika startA < endB && startB < endA
-                return $newStart < $otherEnd && $otherStart < $newEnd;
-            });
-
-        if ($conflict) {
-            throw ValidationException::withMessages([
-                'planned_departure_time' => 'Petugas/kendaraan sudah dijadwalkan pada jam yang bertabrakan.',
-            ]);
-        }
-
-        return DB::transaction(function () use ($route, $actor, $data) {
+        return DB::transaction(function () use ($route, $actor, $data, $newStart, $newEnd) {
             $locked = DeliveryRoute::query()->whereKey($route->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status !== DeliveryStatus::DISIAPKAN) {
                 abort(409, 'Rute yang sudah Berangkat atau lebih tidak dapat diubah.');
+            }
+
+            $dateStr = $locked->operational_date?->toDateString() ?? now('Asia/Jakarta')->toDateString();
+
+            $conflict = DeliveryRoute::query()
+                ->whereDate('operational_date', $dateStr)
+                ->where('id', '!=', $locked->id)
+                ->where(function ($q) use ($data) {
+                    $q->where('courier_name', $data['courier_name'])
+                        ->orWhere('vehicle_plate', $data['vehicle_plate']);
+                })
+                ->lockForUpdate()
+                ->get()
+                ->first(function (DeliveryRoute $other) use ($newStart, $newEnd): bool {
+                    $otherStart = $other->planned_departure_time
+                        ?? $other->departed_at?->timezone('Asia/Jakarta')->format('H:i');
+                    $otherEnd = $other->scheduled_arrival_time;
+
+                    if (! $otherStart || ! $otherEnd) {
+                        return false;
+                    }
+
+                    // Overlap jika startA < endB && startB < endA
+                    return $newStart < $otherEnd && $otherStart < $newEnd;
+                });
+
+            if ($conflict) {
+                throw ValidationException::withMessages([
+                    'planned_departure_time' => 'Petugas/kendaraan sudah dijadwalkan pada jam yang bertabrakan.',
+                ]);
             }
 
             $oldValues = [
@@ -335,7 +337,14 @@ class AslapService
                         ->whereDate('operational_date', ($locked->reported_at ?? $now)->toDateString())
                         ->first();
 
-                    if ($route && $route->confirmed_portions !== null && $route->status === DeliveryStatus::BERMASALAH) {
+                    if (
+                        $route
+                        && $route->confirmed_portions !== null
+                        && $route->status === DeliveryStatus::BERMASALAH
+                        && $route->confirmed_portions >= $route->dispatched_portions
+                        && ($route->packaging_condition === null || $route->packaging_condition === 'baik')
+                        && ($route->organoleptic_status === null || $route->organoleptic_status === 'Layak')
+                    ) {
                         $route->forceFill(['status' => DeliveryStatus::DITERIMA])->save();
                     }
                 }

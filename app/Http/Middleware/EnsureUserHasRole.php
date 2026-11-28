@@ -28,6 +28,10 @@ class EnsureUserHasRole
                 || $request->is('aslap/*')
                 || $request->is('distribusi')
                 || $request->is('distribusi/*')
+                || $request->is('ahli-gizi')
+                || $request->is('ahli-gizi/*')
+                || $request->is('guru-pic')
+                || $request->is('guru-pic/*')
                 || $request->expectsJson()
             ) {
                 abort(403, 'Akses ditolak: Peran Anda tidak memiliki izin membuka modul ini.');

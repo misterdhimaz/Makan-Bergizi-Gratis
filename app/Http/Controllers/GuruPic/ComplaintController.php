@@ -9,6 +9,7 @@ use App\Models\Location;
 use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ComplaintController extends Controller
@@ -16,9 +17,7 @@ class ComplaintController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $location = $user?->location_id
-            ? Location::find($user->location_id)
-            : Location::where('is_active', true)->orderBy('id')->first();
+        $location = $user?->location_id ? Location::find($user->location_id) : null;
 
         $tickets = $location
             ? ComplaintTicket::with(['resolver'])
@@ -52,9 +51,11 @@ class ComplaintController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $location = $user?->location_id
-            ? Location::findOrFail($user->location_id)
-            : Location::where('is_active', true)->orderBy('id')->firstOrFail();
+        if (! $user?->location_id) {
+            abort(403, 'Akun Guru PIC belum ditautkan ke lokasi sekolah.');
+        }
+
+        $location = Location::findOrFail($user->location_id);
 
         $validated = $request->validate([
             'category' => ['required', 'in:kemasan_tumpah,selisih_porsi,keterlambatan,kualitas_organoleptik'],
@@ -76,24 +77,28 @@ class ComplaintController extends Controller
         }
 
         $isSerious = $validated['priority'] === 'serius';
-        $ticketNumber = $this->generateTicketNumber();
         $institution = BeneficiaryInstitution::where('name', 'like', '%'.explode(' ', $location->name)[0].'%')->first()
             ?? BeneficiaryInstitution::firstOrFail();
 
-        $ticket = ComplaintTicket::create([
-            'ticket_number' => $ticketNumber,
-            'beneficiary_institution_id' => $institution->id,
-            'location_id' => $location->id,
-            'reported_by' => $user->id,
-            'category' => $validated['category'],
-            'severity' => $isSerious ? 'kritis' : 'sedang',
-            'description' => $validated['description'],
-            'photo_path' => $photoPath,
-            'status' => 'open',
-            'reported_at' => now('Asia/Jakarta'),
-            'priority_notified_at' => $isSerious ? now('Asia/Jakarta') : null,
-            'priority_recipients' => $isSerious ? 'Asisten Lapangan & Kepala Dapur (SPPG Sungai Selayur 1)' : null,
-        ]);
+        $ticket = DB::transaction(function () use ($location, $user, $institution, $validated, $photoPath, $isSerious): ComplaintTicket {
+            $ticketNumber = $this->generateTicketNumber(lock: true);
+
+            return ComplaintTicket::create([
+                'ticket_number' => $ticketNumber,
+                'beneficiary_institution_id' => $institution->id,
+                'location_id' => $location->id,
+                'reported_by' => $user->id,
+                'category' => $validated['category'],
+                'severity' => $isSerious ? 'kritis' : 'sedang',
+                'description' => $validated['description'],
+                'photo_path' => $photoPath,
+                'status' => 'open',
+                'reported_at' => now('Asia/Jakarta'),
+                'priority_notified_at' => $isSerious ? now('Asia/Jakarta') : null,
+                'priority_recipients' => $isSerious ? 'Asisten Lapangan & Kepala Dapur (SPPG Sungai Selayur 1)' : null,
+            ]);
+        });
+        $ticketNumber = $ticket->ticket_number;
 
         AuditLogService::record(
             action: $isSerious ? 'notifikasi_prioritas' : 'tambah',
@@ -117,15 +122,20 @@ class ComplaintController extends Controller
             ->with('success', $flashMsg);
     }
 
-    private function generateTicketNumber(): string
+    private function generateTicketNumber(bool $lock = false): string
     {
         $todayCode = now('Asia/Jakarta')->format('Ymd');
         $prefix = "#KLP-{$todayCode}-";
 
-        $last = ComplaintTicket::query()
+        $query = ComplaintTicket::query()
             ->where('ticket_number', 'like', $prefix.'%')
-            ->orderByDesc('ticket_number')
-            ->value('ticket_number');
+            ->orderByDesc('ticket_number');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $last = $query->value('ticket_number');
 
         $nextSeq = 1;
         if (is_string($last) && preg_match('/-(\d+)$/', $last, $matches)) {

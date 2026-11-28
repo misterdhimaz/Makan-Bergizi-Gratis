@@ -37,7 +37,7 @@ class AhliGiziModuleTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('ahli-gizi.dashboard'))
-            ->assertRedirect(route('dashboard'));
+            ->assertForbidden();
 
         $this->actingAs($this->ahliGizi)
             ->get(route('ahli-gizi.dashboard'))

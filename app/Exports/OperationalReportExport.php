@@ -19,7 +19,16 @@ class OperationalReportExport implements FromCollection, WithHeadings
 
     public function collection(): Collection
     {
-        return $this->rows;
+        return $this->rows->map(fn (array $row): array => array_map(
+            static function (string|int|float|null $cell): string|int|float|null {
+                if (is_string($cell) && $cell !== '-' && preg_match('/^[=+\-@\t\r]/', $cell) === 1) {
+                    return "'".$cell;
+                }
+
+                return $cell;
+            },
+            $row
+        ));
     }
 
     public function headings(): array

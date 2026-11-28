@@ -32,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $demoDate = env('APP_DEMO_DATE');
+        $demoDate = config('app.demo_date');
         if (is_string($demoDate) && trim($demoDate) !== '') {
             Carbon::setTestNow(Carbon::parse($demoDate, 'Asia/Jakarta'));
         }

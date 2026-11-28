@@ -12,6 +12,7 @@ use App\Models\ProductionRun;
 use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class InventoryPortionController extends Controller
@@ -119,19 +120,21 @@ class InventoryPortionController extends Controller
             'items.*.actual_used_qty' => ['required', 'numeric', 'min:0'],
         ]);
 
-        foreach ($validated['items'] as $row) {
-            DailyMenuItem::where('id', $row['id'])->update([
-                'dispatched_qty' => $row['dispatched_qty'],
-                'actual_used_qty' => $row['actual_used_qty'],
-            ]);
-        }
+        DB::transaction(function () use ($validated, $request): void {
+            foreach ($validated['items'] as $row) {
+                DailyMenuItem::where('id', $row['id'])->update([
+                    'dispatched_qty' => $row['dispatched_qty'],
+                    'actual_used_qty' => $row['actual_used_qty'],
+                ]);
+            }
 
-        AuditLogService::record(
-            action: 'ubah',
-            module: 'Ahli Gizi · Realisasi Pemakaian Bahan',
-            target: 'Realisasi bahan harian',
-            actor: $request->user(),
-        );
+            AuditLogService::record(
+                action: 'ubah',
+                module: 'Ahli Gizi · Realisasi Pemakaian Bahan',
+                target: 'Realisasi bahan harian',
+                actor: $request->user(),
+            );
+        });
 
         return back()->with('success', 'Realisasi penggunaan bahan berhasil disimpan.');
     }

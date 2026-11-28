@@ -77,8 +77,8 @@ class AkuntanModuleTest extends TestCase
     public function test_akuntan_receives_403_on_other_role_routes(): void
     {
         $this->actingAs($this->akuntan)->get('/admin/dashboard')->assertForbidden();
-        $this->actingAs($this->akuntan)->get('/ahli-gizi/dashboard')->assertRedirect('/dashboard');
-        $this->actingAs($this->akuntan)->get('/guru-pic/dashboard')->assertRedirect('/dashboard');
+        $this->actingAs($this->akuntan)->get('/ahli-gizi/dashboard')->assertForbidden();
+        $this->actingAs($this->akuntan)->get('/guru-pic/dashboard')->assertForbidden();
     }
 
     public function test_akuntan_redirects_to_akuntan_dashboard_from_root_and_dashboard(): void

@@ -28,6 +28,8 @@ return [
 
     'env' => env('APP_ENV', 'production'),
 
+    'demo_date' => env('APP_DEMO_DATE'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode
