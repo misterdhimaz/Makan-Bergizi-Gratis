@@ -8,6 +8,7 @@ process.env.E2E_TEMP_PASSWORD = process.env.E2E_TEMP_PASSWORD || `${crypto.rando
 
 export default defineConfig({
     testDir: './tests/e2e',
+    workers: 1,
     timeout: 60000,
     retries: 0,
     use: {

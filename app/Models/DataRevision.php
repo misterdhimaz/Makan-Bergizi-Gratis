@@ -11,11 +11,14 @@ class DataRevision extends Model
     protected $fillable = [
         'revisable_type',
         'revisable_id',
+        'field',
         'old_values',
         'new_values',
         'reason',
         'requested_by',
+        'status',
         'approved_by',
+        'decision_notes',
         'approved_at',
     ];
 

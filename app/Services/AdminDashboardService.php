@@ -15,6 +15,7 @@ class AdminDashboardService
 {
     public function __construct(
         private readonly DataMasterCompletenessService $completenessService,
+        private readonly DeliveryMetrics $deliveryMetrics,
     ) {}
 
     /**
@@ -24,18 +25,13 @@ class AdminDashboardService
      */
     public function metrics(?Carbon $operationalDate = null): array
     {
-        $date = ($operationalDate ?? now())->toDateString();
+        $dateCarbon = $operationalDate ?? now();
+        $date = $dateCarbon->toDateString();
+        $deliveryMetrics = $this->deliveryMetrics->forDate($dateCarbon);
 
         $routes = DeliveryRoute::with('location')
             ->whereDate('operational_date', $date)
             ->get();
-
-        $dispatchedStatuses = [
-            DeliveryStatus::BERANGKAT->value,
-            DeliveryStatus::TIBA->value,
-            DeliveryStatus::DITERIMA->value,
-            DeliveryStatus::BERMASALAH->value,
-        ];
 
         $unconfirmedStatuses = [
             DeliveryStatus::BERANGKAT->value,
@@ -43,25 +39,14 @@ class AdminDashboardService
             DeliveryStatus::BERMASALAH->value,
         ];
 
-        $dikirim = (int) $routes
-            ->filter(fn (DeliveryRoute $r): bool => in_array($r->status->value, $dispatchedStatuses, true))
-            ->sum('dispatched_portions');
-
-        $receivedRoutes = $routes->filter(
-            fn (DeliveryRoute $r): bool => $r->status === DeliveryStatus::DITERIMA
-        );
-
-        $diterima = (int) $receivedRoutes->sum('confirmed_portions');
-        $dispatchedOnReceived = (int) $receivedRoutes->sum('dispatched_portions');
-
-        $belumDikonfirmasi = $dikirim - $dispatchedOnReceived;
-
-        $selisihTerkonfirmasi = (int) $receivedRoutes->sum(
-            fn (DeliveryRoute $r): int => (int) ($r->confirmed_portions ?? 0) - (int) $r->dispatched_portions
-        );
+        $dikirim = $deliveryMetrics['dikirim'];
+        $diterima = $deliveryMetrics['diterima'];
+        $belumDikonfirmasi = $deliveryMetrics['belum_dikonfirmasi'];
+        $selisihTerkonfirmasi = $deliveryMetrics['selisih_terkonfirmasi'];
+        $titikTerkonfirmasi = $deliveryMetrics['titik_terkonfirmasi'];
 
         $jumlahTitikBelumDikonfirmasi = $routes
-            ->filter(fn (DeliveryRoute $r): bool => in_array($r->status->value, $unconfirmedStatuses, true))
+            ->filter(fn (DeliveryRoute $r): bool => in_array($r->status->value, $unconfirmedStatuses, true) && $r->confirmed_portions === null)
             ->count();
 
         $masihDisiapkan = (int) $routes
@@ -110,7 +95,7 @@ class AdminDashboardService
             'selisih_terkonfirmasi' => $selisihTerkonfirmasi,
             'jumlah_titik_belum_dikonfirmasi' => $jumlahTitikBelumDikonfirmasi,
             'masih_disiapkan' => $masihDisiapkan,
-            'titik_terkonfirmasi' => $receivedRoutes->count(),
+            'titik_terkonfirmasi' => $titikTerkonfirmasi,
             'target_porsi' => $targetPorsi,
             'jumlah_lokasi' => $jumlahLokasi,
             'data_master_siap' => $master['siap_count'],

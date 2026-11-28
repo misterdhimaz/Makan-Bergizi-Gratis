@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\MenuStatus;
 use App\Http\Controllers\AppearanceSettingController;
 use App\Listeners\LogAuthenticationEvents;
 use App\Models\ApdInspection;
@@ -13,6 +14,7 @@ use App\Models\DeliveryConfirmation;
 use App\Models\Ingredient;
 use App\Models\ProductionRun;
 use App\Models\QcInspection;
+use Carbon\Carbon;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -30,6 +32,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $demoDate = env('APP_DEMO_DATE');
+        if (is_string($demoDate) && trim($demoDate) !== '') {
+            Carbon::setTestNow(Carbon::parse($demoDate, 'Asia/Jakarta'));
+        }
+
         Event::listen(Login::class, [LogAuthenticationEvents::class, 'handleLogin']);
         Event::listen(Logout::class, [LogAuthenticationEvents::class, 'handleLogout']);
         Event::listen(Failed::class, [LogAuthenticationEvents::class, 'handleFailed']);
@@ -43,7 +50,7 @@ class AppServiceProvider extends ServiceProvider
                 ->whereDate('operational_date', today())
                 ->first()
                 ?? DailyMenu::with(['productionRun.qcInspection'])
-                    ->whereIn('status', ['in_production', 'approved', 'completed'])
+                    ->whereIn('status', MenuStatus::locked())
                     ->latest('operational_date')
                     ->first();
 
@@ -55,7 +62,7 @@ class AppServiceProvider extends ServiceProvider
 
             $latestApd = ApdInspection::latest('inspection_date')->first();
 
-            $pendingMenusCount = DailyMenu::where('status', 'pending_approval')->count();
+            $pendingMenusCount = DailyMenu::where('status', MenuStatus::LOLOS_PAGU->value)->count();
             $lowStockItems = Ingredient::where('current_stock', '<=', 0)->get();
             $activeInstitutionsCount = BeneficiaryInstitution::where('is_active', true)->count();
 

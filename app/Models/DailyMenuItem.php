@@ -15,6 +15,7 @@ class DailyMenuItem extends Model
         'ingredient_id',
         'qty_per_portion',
         'total_planned_qty',
+        'dispatched_qty',
         'actual_used_qty',
         'preparation_notes',
     ];
@@ -24,6 +25,7 @@ class DailyMenuItem extends Model
         return [
             'qty_per_portion' => 'decimal:4',
             'total_planned_qty' => 'decimal:2',
+            'dispatched_qty' => 'decimal:2',
             'actual_used_qty' => 'decimal:2',
         ];
     }

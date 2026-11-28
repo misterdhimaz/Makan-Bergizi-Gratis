@@ -13,14 +13,14 @@
         x-show="{{ $openVar }}"
         x-transition.opacity
         x-cloak
-        class="fixed inset-0 z-[9999] flex items-end md:items-stretch md:justify-end bg-obsidian/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-md bg-obsidian/60 backdrop-blur-sm"
     >
         <div
             @click.outside="{{ $openVar }} = false"
             @keydown.escape.window="{{ $openVar }} = false"
             role="dialog"
             aria-modal="true"
-            class="w-full md:max-w-lg max-h-[90vh] md:max-h-screen bg-surface rounded-t-xl md:rounded-t-none md:rounded-l-xl border-t md:border-t-0 md:border-l border-border-soft p-xl shadow-2xl flex flex-col gap-md overflow-y-auto"
+            class="w-full max-w-lg max-h-[90vh] bg-surface rounded-xl border border-border-soft p-xl shadow-2xl flex flex-col gap-md overflow-y-auto"
         >
             <div class="flex items-start justify-between gap-md pb-md border-b border-border-soft">
                 <div class="flex flex-col gap-xs min-w-0">

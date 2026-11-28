@@ -119,6 +119,33 @@
 @utility pr-md { padding-right: 12px; }
 @utility pr-lg { padding-right: 16px; }
 
+html.dark {
+    color-scheme: dark;
+    --color-ground: #0f110e;
+    --color-surface: #181a16;
+    --color-surface-subtle: #21241f;
+    --color-surface-muted: #2a2e27;
+    --color-obsidian: #f2f2ed;
+    --color-on-obsidian: #141513;
+    --color-ink: #f2f2ed;
+    --color-ink-muted: #a6a89e;
+    --color-border-soft: #2e322b;
+    --color-lime-accent: #ebfa66;
+    --color-on-lime: #141513;
+    --color-success: #4ade80;
+    --color-success-soft: #143321;
+    --color-on-success-soft: #bbf7d0;
+    --color-alert-soft: #3b2b0e;
+    --color-on-alert-soft: #fde68a;
+    --color-danger-soft: #3b1518;
+    --color-on-danger-soft: #fecaca;
+}
+
+html.dark select option {
+    background-color: #181a16;
+    color: #f2f2ed;
+}
+
 @utility gap-xs { gap: 4px; }
 @utility gap-sm { gap: 8px; }
 @utility gap-md { gap: 12px; }

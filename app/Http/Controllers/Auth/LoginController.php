@@ -145,6 +145,30 @@ class LoginController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
+        if ($user->role === UserRole::AHLI_GIZI && Route::has('ahli-gizi.dashboard')) {
+            return redirect()->route('ahli-gizi.dashboard');
+        }
+
+        if ($user->role === UserRole::AKUNTAN && Route::has('akuntan.dashboard')) {
+            return redirect()->route('akuntan.dashboard');
+        }
+
+        if ($user->role === UserRole::KEPALA_DAPUR && Route::has('kepala-dapur.dashboard')) {
+            return redirect()->route('kepala-dapur.dashboard');
+        }
+
+        if ($user->role === UserRole::ASISTEN_LAPANGAN && Route::has('aslap.dashboard')) {
+            return redirect()->route('aslap.dashboard');
+        }
+
+        if ($user->role === UserRole::TIM_DISTRIBUSI && Route::has('distribusi.dashboard')) {
+            return redirect()->route('distribusi.dashboard');
+        }
+
+        if ($user->role === UserRole::GURU_PIC && Route::has('guru-pic.dashboard')) {
+            return redirect()->route('guru-pic.dashboard');
+        }
+
         return redirect()->route('dashboard');
     }
 }
