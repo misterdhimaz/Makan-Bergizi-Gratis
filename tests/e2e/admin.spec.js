@@ -113,11 +113,11 @@ test.describe('REKAGIZI Admin E2E (Isolated mbg_e2e)', () => {
         await page.fill('input[name="password"]', 'NadiaBaru2026!');
         await page.fill('input[name="password_confirmation"]', 'NadiaBaru2026!');
         await page.click('button[type="submit"]');
-        await page.waitForURL('**/dashboard');
-        await expect(page.locator('body')).toContainText('belum tersedia');
+        await page.waitForURL('**/ahli-gizi/dashboard');
+        await expect(page.locator('header')).toContainText('Nadia');
 
         // Logout nadia.putri lalu uji sesi berakhir sebagai admin
-        await page.locator('form[action$="/logout"] button[type="submit"]').click();
+        await page.locator('aside form[action$="/logout"] button[type="submit"]').first().click();
         await page.waitForURL('**/login');
 
         await loginAsAdmin(page);
@@ -133,13 +133,13 @@ test.describe('REKAGIZI Admin E2E (Isolated mbg_e2e)', () => {
         // Dashboard angka wajib
         await expect(page.locator('header')).toContainText('Selamat');
         await expect(page.locator('header')).toContainText('Arief');
-        await expect(page.locator('main')).toContainText('1.170');
+        await expect(page.locator('main')).toContainText('1.070');
         await expect(page.locator('main')).toContainText('318');
-        await expect(page.locator('main')).toContainText('850');
+        await expect(page.locator('main')).toContainText('750');
         await expect(page.locator('main')).toContainText('-2');
         await expect(page.locator('main')).toContainText('15');
         await expect(page.locator('main')).toContainText('2 dinonaktifkan');
-        await expect(page.locator('main')).toContainText('5 / 7');
+        await expect(page.locator('main')).toContainText('4 / 7');
 
         // Ubah Keamanan Sesi -> verifikasi teks di halaman login
         await page.goto('/admin/pengaturan/keamanan-sesi');

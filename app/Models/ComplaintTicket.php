@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ComplaintTicket extends Model
 {
@@ -12,14 +13,20 @@ class ComplaintTicket extends Model
 
     protected $fillable = [
         'ticket_number',
+        'sequence',
         'delivery_id',
         'beneficiary_institution_id',
+        'location_id',
         'reported_by',
         'category',
         'severity',
         'description',
         'photo_path',
         'status',
+        'reported_at',
+        'first_response_at',
+        'priority_notified_at',
+        'priority_recipients',
         'resolved_by',
         'resolution_notes',
         'resolution_photo_path',
@@ -29,8 +36,22 @@ class ComplaintTicket extends Model
     protected function casts(): array
     {
         return [
+            'sequence' => 'integer',
+            'reported_at' => 'datetime',
+            'first_response_at' => 'datetime',
+            'priority_notified_at' => 'datetime',
             'resolved_at' => 'datetime',
         ];
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(ComplaintHistory::class)->orderBy('created_at');
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'location_id');
     }
 
     public function delivery(): BelongsTo
@@ -56,11 +77,11 @@ class ComplaintTicket extends Model
     public function categoryLabel(): string
     {
         return match ($this->category) {
-            'porsi_kurang' => 'Kekurangan Porsi / Tidak Cukup',
-            'basi_asam' => 'Makanan Basi / Berbau Asam',
-            'benda_asing' => 'Temuan Benda Asing',
-            'keterlambatan' => 'Keterlambatan Jam Tiba (>10:30 WIB)',
-            'ompreng_rusak' => 'Ompreng Rusak / Tumpah',
+            'kemasan_tumpah', 'ompreng_rusak' => 'Kemasan / Ompreng Tumpah',
+            'selisih_porsi', 'porsi_kurang' => 'Selisih Jumlah Porsi',
+            'keterlambatan' => 'Keterlambatan Pengiriman',
+            'kualitas_organoleptik', 'basi_asam', 'benda_asing' => 'Kualitas / Uji Organoleptik',
+            'kelengkapan_alat' => 'Kelengkapan Alat Makan',
             default => 'Keluhan Lainnya',
         };
     }

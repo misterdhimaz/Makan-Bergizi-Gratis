@@ -17,7 +17,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title }} — REKAGIZI MBG</title>
+    <title>REKAGIZI</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/logo-bgn.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
@@ -227,6 +228,7 @@
 
                 <div class="flex items-center gap-sm flex-wrap">
                     {{ $actions ?? '' }}
+                    <x-theme-toggle />
                 </div>
             </header>
 

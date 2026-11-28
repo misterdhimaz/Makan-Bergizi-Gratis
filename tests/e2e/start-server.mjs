@@ -60,6 +60,22 @@ $inactive->forceFill([
     'password' => Illuminate\\Support\\Facades\\Hash::make($tempPw),
     'is_active' => false,
 ])->saveQuietly();
+
+$guruPic = App\\Models\\User::where('username', 'rina.marlina')->firstOrFail();
+$guruPic->forceFill([
+    'password' => Illuminate\\Support\\Facades\\Hash::make($tempPw),
+    'must_change_password' => false,
+    'failed_login_attempts' => 0,
+    'locked_until' => null,
+])->saveQuietly();
+
+$akuntan = App\\Models\\User::where('username', 'rizky.pratama')->firstOrFail();
+$akuntan->forceFill([
+    'password' => Illuminate\\Support\\Facades\\Hash::make($tempPw),
+    'must_change_password' => false,
+    'failed_login_attempts' => 0,
+    'locked_until' => null,
+])->saveQuietly();
 `,
 );
 

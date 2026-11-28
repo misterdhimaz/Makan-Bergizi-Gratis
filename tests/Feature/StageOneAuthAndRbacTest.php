@@ -180,7 +180,7 @@ class StageOneAuthAndRbacTest extends TestCase
             ->get(route('admin.dashboard'))
             ->assertForbidden();
 
-        // /dashboard mengarahkan Admin ke admin.dashboard, sedangkan non-Admin ke placeholder
+        // /dashboard mengarahkan Admin dan Ahli Gizi ke dashboard masing-masing, sedangkan peran lain ke placeholder
         $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertRedirect(route('admin.dashboard'));
@@ -191,7 +191,13 @@ class StageOneAuthAndRbacTest extends TestCase
 
         $this->actingAs($ahliGizi)
             ->get(route('dashboard'))
-            ->assertOk()
-            ->assertSee('Dashboard untuk peran ini belum tersedia', false);
+            ->assertRedirect(route('ahli-gizi.dashboard'));
+
+        $kepalaDapur = User::where('role', UserRole::KEPALA_DAPUR->value)->where('is_active', true)->firstOrFail();
+        $kepalaDapur->forceFill(['must_change_password' => false])->saveQuietly();
+
+        $this->actingAs($kepalaDapur)
+            ->get(route('dashboard'))
+            ->assertRedirect(route('kepala-dapur.dashboard'));
     }
 }

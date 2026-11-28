@@ -17,8 +17,20 @@ class EnsureUserHasRole
         }
 
         if (! $user->hasRole($roles)) {
-            if ($request->is('admin') || $request->is('admin/*') || $request->expectsJson()) {
-                abort(403, 'Akses ditolak: Peran Anda tidak memiliki izin membuka halaman Administrator.');
+            if (
+                $request->is('admin')
+                || $request->is('admin/*')
+                || $request->is('akuntan')
+                || $request->is('akuntan/*')
+                || $request->is('kepala-dapur')
+                || $request->is('kepala-dapur/*')
+                || $request->is('aslap')
+                || $request->is('aslap/*')
+                || $request->is('distribusi')
+                || $request->is('distribusi/*')
+                || $request->expectsJson()
+            ) {
+                abort(403, 'Akses ditolak: Peran Anda tidak memiliki izin membuka modul ini.');
             }
 
             return redirect()->route('dashboard')->with(

@@ -16,6 +16,7 @@ class PaguParameter extends Model
         'effective_date',
         'notes',
         'is_active',
+        'updated_by',
     ];
 
     protected function casts(): array
@@ -35,5 +36,10 @@ class PaguParameter extends Model
     public function recipientCategory(): BelongsTo
     {
         return $this->belongsTo(RecipientCategory::class);
+    }
+
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

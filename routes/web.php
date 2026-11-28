@@ -14,9 +14,32 @@ use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\Admin\SopChecklistController;
 use App\Http\Controllers\Admin\SupplierMasterController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\AhliGizi\DashboardController as AhliGiziDashboardController;
+use App\Http\Controllers\AhliGizi\FoodSafetyController as AhliGiziFoodSafetyController;
+use App\Http\Controllers\AhliGizi\InventoryPortionController as AhliGiziInventoryController;
+use App\Http\Controllers\AhliGizi\MenuPlanningController as AhliGiziMenuController;
+use App\Http\Controllers\AhliGizi\ReadOnlyController as AhliGiziReadOnlyController;
+use App\Http\Controllers\Akuntan\DashboardController as AkuntanDashboardController;
+use App\Http\Controllers\Akuntan\LaporanController as AkuntanLaporanController;
+use App\Http\Controllers\Akuntan\ParameterPaguController as AkuntanParameterPaguController;
+use App\Http\Controllers\Akuntan\ValidasiAnggaranController as AkuntanValidasiAnggaranController;
+use App\Http\Controllers\Aslap\DashboardController as AslapDashboardController;
+use App\Http\Controllers\Aslap\DistribusiController as AslapDistribusiController;
+use App\Http\Controllers\Aslap\KeluhanLaporanController as AslapKeluhanLaporanController;
+use App\Http\Controllers\Aslap\PengadaanController as AslapPengadaanController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Distribusi\DashboardController as DistribusiDashboardController;
+use App\Http\Controllers\Distribusi\PengirimanController as DistribusiPengirimanController;
+use App\Http\Controllers\Distribusi\RiwayatController as DistribusiRiwayatController;
+use App\Http\Controllers\GuruPic\ComplaintController as GuruPicComplaintController;
+use App\Http\Controllers\GuruPic\ConfirmationController as GuruPicConfirmationController;
+use App\Http\Controllers\GuruPic\DashboardController as GuruPicDashboardController;
+use App\Http\Controllers\KepalaDapur\DashboardController as KepalaDapurDashboardController;
+use App\Http\Controllers\KepalaDapur\LaporanController as KepalaDapurLaporanController;
+use App\Http\Controllers\KepalaDapur\PersetujuanController as KepalaDapurPersetujuanController;
+use App\Http\Controllers\KepalaDapur\TindakLanjutController as KepalaDapurTindakLanjutController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -26,9 +49,16 @@ Route::get('/', function () {
         return redirect()->route('login');
     }
 
-    return Auth::user()->role === UserRole::ADMIN
-        ? redirect()->route('admin.dashboard')
-        : redirect()->route('dashboard');
+    return match (Auth::user()->role) {
+        UserRole::ADMIN => redirect()->route('admin.dashboard'),
+        UserRole::AHLI_GIZI => redirect()->route('ahli-gizi.dashboard'),
+        UserRole::AKUNTAN => redirect()->route('akuntan.dashboard'),
+        UserRole::KEPALA_DAPUR => redirect()->route('kepala-dapur.dashboard'),
+        UserRole::ASISTEN_LAPANGAN => redirect()->route('aslap.dashboard'),
+        UserRole::TIM_DISTRIBUSI => redirect()->route('distribusi.dashboard'),
+        UserRole::GURU_PIC => redirect()->route('guru-pic.dashboard'),
+        default => redirect()->route('dashboard'),
+    };
 });
 
 // Rute Tamu (Guest) — tanpa registrasi mandiri & tanpa verifikasi email
@@ -52,16 +82,153 @@ Route::middleware(['auth', 'akun-aktif', 'batas-sesi'])->group(function () {
     Route::post('/ganti-sandi', [ForcePasswordChangeController::class, 'store'])->name('password.change.store');
 });
 
-// Dashboard umum: Administrator Sistem selalu ke admin.dashboard; peran lain ke placeholder
+// Dashboard umum: Administrator Sistem & Ahli Gizi ke dashboard masing-masing; peran lain ke placeholder
 Route::middleware(['auth', 'akun-aktif', 'wajib-ganti-sandi', 'batas-sesi'])->group(function () {
     Route::get('/dashboard', function () {
         if (Auth::user()->role === UserRole::ADMIN) {
             return redirect()->route('admin.dashboard');
         }
 
+        if (Auth::user()->role === UserRole::AHLI_GIZI) {
+            return redirect()->route('ahli-gizi.dashboard');
+        }
+
+        if (Auth::user()->role === UserRole::AKUNTAN) {
+            return redirect()->route('akuntan.dashboard');
+        }
+
+        if (Auth::user()->role === UserRole::KEPALA_DAPUR) {
+            return redirect()->route('kepala-dapur.dashboard');
+        }
+
+        if (Auth::user()->role === UserRole::ASISTEN_LAPANGAN) {
+            return redirect()->route('aslap.dashboard');
+        }
+
+        if (Auth::user()->role === UserRole::TIM_DISTRIBUSI) {
+            return redirect()->route('distribusi.dashboard');
+        }
+
+        if (Auth::user()->role === UserRole::GURU_PIC) {
+            return redirect()->route('guru-pic.dashboard');
+        }
+
         return view('dashboard.placeholder');
     })->name('dashboard');
 });
+
+// Grup Rute Tim Distribusi
+Route::prefix('distribusi')
+    ->name('distribusi.')
+    ->middleware(['auth', 'akun-aktif', 'role:Tim Distribusi', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->group(function () {
+        Route::get('/dashboard', DistribusiDashboardController::class)->name('dashboard');
+        Route::get('/pengiriman', [DistribusiPengirimanController::class, 'index'])->name('pengiriman.index');
+        Route::post('/pengiriman/{route}', [DistribusiPengirimanController::class, 'update'])->name('pengiriman.update');
+        Route::get('/riwayat', DistribusiRiwayatController::class)->name('riwayat.index');
+    });
+
+// Unduh dokumen bukti pengiriman (terotorisasi lintas peran terkait)
+Route::middleware(['auth', 'akun-aktif', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->get('/distribusi/dokumen/{document}', [DistribusiPengirimanController::class, 'downloadDocument'])
+    ->name('distribusi.dokumen.download');
+
+// Grup Rute Asisten Lapangan (Aslap)
+Route::prefix('aslap')
+    ->name('aslap.')
+    ->middleware(['auth', 'akun-aktif', 'role:Asisten Lapangan', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->group(function () {
+        Route::get('/dashboard', AslapDashboardController::class)->name('dashboard');
+
+        Route::get('/pengadaan', [AslapPengadaanController::class, 'index'])->name('pengadaan.index');
+        Route::post('/pengadaan/{transaction}', [AslapPengadaanController::class, 'update'])->name('pengadaan.update');
+
+        Route::get('/distribusi', [AslapDistribusiController::class, 'index'])->name('distribusi.index');
+        Route::post('/distribusi', [AslapDistribusiController::class, 'store'])->name('distribusi.store');
+        Route::patch('/distribusi/{route}', [AslapDistribusiController::class, 'update'])->name('distribusi.update');
+
+        Route::get('/keluhan-laporan', [AslapKeluhanLaporanController::class, 'index'])->name('keluhan.index');
+        Route::post('/keluhan-laporan/{ticket}', [AslapKeluhanLaporanController::class, 'handleComplaint'])->name('keluhan.handle');
+        Route::get('/keluhan-laporan/ekspor/pdf', [AslapKeluhanLaporanController::class, 'exportPdf'])->name('laporan.export.pdf');
+        Route::get('/keluhan-laporan/ekspor/excel', [AslapKeluhanLaporanController::class, 'exportExcel'])->name('laporan.export.excel');
+        Route::get('/keluhan-laporan/ekspor/csv', [AslapKeluhanLaporanController::class, 'exportCsv'])->name('laporan.export.csv');
+    });
+
+// Grup Rute Kepala Dapur
+Route::prefix('kepala-dapur')
+    ->name('kepala-dapur.')
+    ->middleware(['auth', 'akun-aktif', 'role:Kepala Dapur', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->group(function () {
+        Route::get('/dashboard', KepalaDapurDashboardController::class)->name('dashboard');
+
+        Route::get('/persetujuan', [KepalaDapurPersetujuanController::class, 'index'])->name('persetujuan.index');
+        Route::post('/persetujuan/menu/{dailyMenu}', [KepalaDapurPersetujuanController::class, 'decideMenu'])->name('persetujuan.menu.decide');
+        Route::post('/persetujuan/koreksi/{revision}/setujui', [KepalaDapurPersetujuanController::class, 'approveRevision'])->name('persetujuan.koreksi.approve');
+        Route::post('/persetujuan/koreksi/{revision}/tolak', [KepalaDapurPersetujuanController::class, 'rejectRevision'])->name('persetujuan.koreksi.reject');
+
+        Route::get('/tindak-lanjut', [KepalaDapurTindakLanjutController::class, 'index'])->name('tindak-lanjut.index');
+        Route::post('/tindak-lanjut/temuan/{finding}', [KepalaDapurTindakLanjutController::class, 'resolveFinding'])->name('tindak-lanjut.temuan.resolve');
+        Route::post('/tindak-lanjut/keluhan/{ticket}', [KepalaDapurTindakLanjutController::class, 'handleComplaint'])->name('tindak-lanjut.keluhan.handle');
+
+        Route::get('/laporan', [KepalaDapurLaporanController::class, 'index'])->name('laporan.index');
+        Route::get('/laporan/ekspor/pdf', [KepalaDapurLaporanController::class, 'exportPdf'])->name('laporan.export.pdf');
+        Route::get('/laporan/ekspor/excel', [KepalaDapurLaporanController::class, 'exportExcel'])->name('laporan.export.excel');
+        Route::get('/laporan/ekspor/csv', [KepalaDapurLaporanController::class, 'exportCsv'])->name('laporan.export.csv');
+    });
+
+// Grup Rute Akuntan
+Route::prefix('akuntan')
+    ->name('akuntan.')
+    ->middleware(['auth', 'akun-aktif', 'role:Akuntan', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->group(function () {
+        Route::get('/dashboard', [AkuntanDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/validasi', [AkuntanValidasiAnggaranController::class, 'index'])->name('validasi.index');
+        Route::post('/validasi/{menu}', [AkuntanValidasiAnggaranController::class, 'store'])->name('validasi.store');
+        Route::get('/parameter-pagu', [AkuntanParameterPaguController::class, 'index'])->name('parameter-pagu.index');
+        Route::put('/parameter-pagu/{kategori}', [AkuntanParameterPaguController::class, 'update'])->name('parameter-pagu.update');
+        Route::get('/laporan', [AkuntanLaporanController::class, 'index'])->name('laporan.index');
+    });
+
+// Grup Rute Guru PIC / Sekolah & Posyandu
+Route::prefix('guru-pic')
+    ->name('guru-pic.')
+    ->middleware(['auth', 'akun-aktif', 'role:Guru PIC / Sekolah & Posyandu', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->group(function () {
+        Route::get('/dashboard', [GuruPicDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/konfirmasi', [GuruPicConfirmationController::class, 'index'])->name('confirmation.index');
+        Route::post('/konfirmasi', [GuruPicConfirmationController::class, 'store'])->name('confirmation.store');
+        Route::get('/keluhan', [GuruPicComplaintController::class, 'index'])->name('complaints.index');
+        Route::post('/keluhan', [GuruPicComplaintController::class, 'store'])->name('complaints.store');
+    });
+
+// Grup Rute Ahli Gizi
+Route::prefix('ahli-gizi')
+    ->name('ahli-gizi.')
+    ->middleware(['auth', 'akun-aktif', 'role:Ahli Gizi', 'wajib-ganti-sandi', 'batas-sesi'])
+    ->group(function () {
+        Route::get('/dashboard', [AhliGiziDashboardController::class, 'index'])->name('dashboard');
+        Route::post('/menu/{dailyMenu}/ajukan-revisi', [AhliGiziDashboardController::class, 'requestRevision'])->name('menu.request-revision');
+
+        Route::get('/perencanaan-menu', [AhliGiziMenuController::class, 'index'])->name('menu.index');
+        Route::post('/perencanaan-menu', [AhliGiziMenuController::class, 'store'])->name('menu.store');
+        Route::put('/perencanaan-menu/{dailyMenu}', [AhliGiziMenuController::class, 'update'])->name('menu.update');
+
+        Route::get('/persediaan-pemorsian', [AhliGiziInventoryController::class, 'index'])->name('inventory.index');
+        Route::post('/persediaan-pemorsian/kebutuhan', [AhliGiziInventoryController::class, 'storeNeeds'])->name('inventory.needs.store');
+        Route::post('/persediaan-pemorsian/penerimaan/{transaction}/verifikasi', [AhliGiziInventoryController::class, 'verifyReceipt'])->name('inventory.verify');
+        Route::post('/persediaan-pemorsian/realisasi', [AhliGiziInventoryController::class, 'storeRealization'])->name('inventory.realization.store');
+        Route::post('/persediaan-pemorsian/ompreng', [AhliGiziInventoryController::class, 'storeOmpreng'])->name('inventory.ompreng.store');
+        Route::post('/persediaan-pemorsian/kendala', [AhliGiziInventoryController::class, 'storeObstacle'])->name('inventory.obstacles.store');
+
+        Route::get('/keamanan-pangan', [AhliGiziFoodSafetyController::class, 'index'])->name('safety.index');
+        Route::post('/keamanan-pangan', [AhliGiziFoodSafetyController::class, 'store'])->name('safety.store');
+
+        // Grup Hanya Lihat (Read-Only)
+        Route::get('/distribusi', [AhliGiziReadOnlyController::class, 'distribusi'])->name('readonly.distribusi');
+        Route::get('/keluhan', [AhliGiziReadOnlyController::class, 'keluhan'])->name('readonly.keluhan');
+        Route::get('/laporan', [AhliGiziReadOnlyController::class, 'laporan'])->name('readonly.laporan');
+        Route::get('/data-master', [AhliGiziReadOnlyController::class, 'dataMaster'])->name('readonly.data-master');
+    });
 
 // Grup Rute Admin — Seluruh modul Administrator Sistem (Tahap 1–5)
 Route::prefix('admin')
