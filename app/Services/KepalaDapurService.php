@@ -85,8 +85,8 @@ class KepalaDapurService
 
         $menuRange = DailyMenu::query()
             ->with(['submittedBy', 'approvedBy'])
-            ->whereDate('operational_date', '>=', '2026-11-26')
-            ->whereDate('operational_date', '<=', '2026-12-01')
+            ->whereDate('operational_date', '>=', $today->copy()->subDays(3)->toDateString())
+            ->whereDate('operational_date', '<=', $today->copy()->addDays(2)->toDateString())
             ->orderBy('operational_date')
             ->get();
 

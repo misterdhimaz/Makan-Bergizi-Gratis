@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\KepalaDapur;
 
-use App\Exports\OperationalReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\Location;
 use App\Services\AuditLogger;
@@ -21,7 +20,7 @@ class LaporanController extends Controller
 {
     public function index(Request $request, ReportBuilder $reportBuilder, KepalaDapurService $service): View
     {
-        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request);
+        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request, $reportBuilder);
         $report = $this->filteredReport($reportBuilder, $periodType, $startDate, $endDate, $locationId);
         $locations = Location::query()->where('is_active', true)->orderBy('name')->get();
 
@@ -37,7 +36,7 @@ class LaporanController extends Controller
 
     public function exportPdf(Request $request, ReportBuilder $reportBuilder): Response
     {
-        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request);
+        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request, $reportBuilder);
         $report = $this->filteredReport($reportBuilder, $periodType, $startDate, $endDate, $locationId);
 
         AuditLogger::record(
@@ -57,7 +56,7 @@ class LaporanController extends Controller
 
     public function exportExcel(Request $request, ReportBuilder $reportBuilder): BinaryFileResponse
     {
-        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request);
+        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request, $reportBuilder);
         $report = $this->filteredReport($reportBuilder, $periodType, $startDate, $endDate, $locationId);
 
         AuditLogger::record(
@@ -68,7 +67,7 @@ class LaporanController extends Controller
         );
 
         return Excel::download(
-            $this->makeExport($report),
+            $reportBuilder->makeDistributionExport($report),
             'laporan-operasional-'.$endDate->format('Ymd').'.xlsx',
             ExcelFormat::XLSX
         );
@@ -76,7 +75,7 @@ class LaporanController extends Controller
 
     public function exportCsv(Request $request, ReportBuilder $reportBuilder): BinaryFileResponse
     {
-        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request);
+        [$periodType, $startDate, $endDate, $locationId] = $this->parseFilters($request, $reportBuilder);
         $report = $this->filteredReport($reportBuilder, $periodType, $startDate, $endDate, $locationId);
 
         AuditLogger::record(
@@ -87,7 +86,7 @@ class LaporanController extends Controller
         );
 
         return Excel::download(
-            $this->makeExport($report),
+            $reportBuilder->makeDistributionExport($report),
             'laporan-operasional-'.$endDate->format('Ymd').'.csv',
             ExcelFormat::CSV
         );
@@ -96,24 +95,9 @@ class LaporanController extends Controller
     /**
      * @return array{0:string,1:Carbon,2:Carbon,3:?int}
      */
-    private function parseFilters(Request $request): array
+    private function parseFilters(Request $request, ReportBuilder $reportBuilder): array
     {
-        $periodType = $request->string('jenis')->toString();
-        if (! in_array($periodType, ['harian', '7hari', '30hari'], true)) {
-            $periodType = 'harian';
-        }
-
-        $dateStr = $request->string('tanggal')->toString();
-        $endDate = $dateStr !== ''
-            ? Carbon::parse($dateStr, 'Asia/Jakarta')
-            : now('Asia/Jakarta');
-
-        $startDate = match ($periodType) {
-            '7hari' => $endDate->copy()->subDays(6),
-            '30hari' => $endDate->copy()->subDays(29),
-            default => $endDate->copy(),
-        };
-
+        [$periodType, $startDate, $endDate] = $reportBuilder->parseDateFilters($request);
         $locationId = $request->filled('lokasi_id') ? (int) $request->input('lokasi_id') : null;
 
         return [$periodType, $startDate, $endDate, $locationId];
@@ -143,43 +127,5 @@ class LaporanController extends Controller
         }
 
         return $report;
-    }
-
-    /**
-     * @param  array<string, mixed>  $report
-     */
-    private function makeExport(array $report): OperationalReportExport
-    {
-        $headings = [
-            'Tanggal',
-            'Nomor Pengiriman',
-            'Lokasi Penerima',
-            'Status',
-            'Dikirim (Porsi)',
-            'Diterima (Porsi)',
-            'Selisih',
-            'Pengantar',
-            'Armada',
-        ];
-
-        $rows = $report['routes']->map(function ($route): array {
-            $variance = $route->confirmed_portions !== null
-                ? ($route->confirmed_portions - $route->dispatched_portions)
-                : '-';
-
-            return [
-                $route->operational_date?->format('Y-m-d') ?? '-',
-                $route->waybill_number,
-                $route->location?->name ?? '-',
-                $route->status->label(),
-                $route->dispatched_portions,
-                $route->confirmed_portions ?? '-',
-                $variance,
-                $route->courier_name ?? $route->courier?->name ?? '-',
-                $route->vehicle_plate ?? '-',
-            ];
-        });
-
-        return new OperationalReportExport($headings, $rows);
     }
 }

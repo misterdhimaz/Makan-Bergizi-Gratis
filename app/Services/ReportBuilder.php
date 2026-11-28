@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\MenuStatus;
+use App\Exports\OperationalReportExport;
 use App\Models\ComplaintTicket;
 use App\Models\DailyMenu;
 use App\Models\DataRevision;
@@ -11,6 +12,7 @@ use App\Models\FoodSafetyCheck;
 use App\Models\FoodSafetyFinding;
 use App\Models\InventoryTransaction;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class ReportBuilder
@@ -117,6 +119,72 @@ class ReportBuilder
             'revisions' => $revisions,
             'procurements' => $procurements,
         ];
+    }
+
+    /**
+     * Parse filter periode (harian, 7hari, 30hari) dan tanggal akhir dari request.
+     *
+     * @return array{0:string,1:Carbon,2:Carbon}
+     */
+    public function parseDateFilters(Request $request): array
+    {
+        $periodType = $request->string('jenis')->toString();
+        if (! in_array($periodType, ['harian', '7hari', '30hari'], true)) {
+            $periodType = 'harian';
+        }
+
+        $dateStr = $request->string('tanggal')->toString();
+        $endDate = $dateStr !== ''
+            ? Carbon::parse($dateStr, 'Asia/Jakarta')
+            : now('Asia/Jakarta');
+
+        $startDate = match ($periodType) {
+            '7hari' => $endDate->copy()->subDays(6),
+            '30hari' => $endDate->copy()->subDays(29),
+            default => $endDate->copy(),
+        };
+
+        return [$periodType, $startDate, $endDate];
+    }
+
+    /**
+     * Bangun objek ekspor Excel/CSV dari ringkasan laporan.
+     *
+     * @param  array<string, mixed>  $report
+     */
+    public function makeDistributionExport(array $report): OperationalReportExport
+    {
+        $headings = [
+            'Tanggal',
+            'Nomor Pengiriman',
+            'Lokasi Penerima',
+            'Status',
+            'Dikirim (Porsi)',
+            'Diterima (Porsi)',
+            'Selisih',
+            'Pengantar',
+            'Armada',
+        ];
+
+        $rows = $report['routes']->map(function (DeliveryRoute $route): array {
+            $variance = $route->confirmed_portions !== null
+                ? ($route->confirmed_portions - $route->dispatched_portions)
+                : '-';
+
+            return [
+                $route->operational_date?->format('Y-m-d') ?? '-',
+                $route->waybill_number,
+                $route->location?->name ?? '-',
+                $route->status->label(),
+                $route->dispatched_portions,
+                $route->confirmed_portions ?? '-',
+                $variance,
+                $route->courier_name ?? $route->courier?->name ?? '-',
+                $route->vehicle_plate ?? '-',
+            ];
+        });
+
+        return new OperationalReportExport($headings, $rows);
     }
 
     /**

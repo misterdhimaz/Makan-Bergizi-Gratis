@@ -43,7 +43,7 @@ class TimDistribusiModuleTest extends TestCase
         $this->actingAs($this->distribusi)->get(route('akuntan.dashboard'))->assertForbidden();
         $this->actingAs($this->distribusi)->get(route('kepala-dapur.dashboard'))->assertForbidden();
         $this->actingAs($this->distribusi)->get(route('aslap.dashboard'))->assertForbidden();
-        $this->actingAs($this->distribusi)->get(route('guru-pic.confirmation.index'))->assertRedirect(route('dashboard'));
+        $this->actingAs($this->distribusi)->get(route('guru-pic.confirmation.index'))->assertForbidden();
     }
 
     public function test_valid_transitions_update_delivery_metrics_and_logs(): void

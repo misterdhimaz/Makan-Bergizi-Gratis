@@ -236,7 +236,7 @@ class DatabaseBackupService
             );
 
             return $preRestoreBackup;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
             AuditLogService::record(
                 action: 'restore_gagal',
                 module: 'Pengaturan Sistem · Backup & Restore',
@@ -248,6 +248,10 @@ class DatabaseBackupService
                 reason: 'Pemulihan basis data gagal dijalankan',
                 actor: $actor,
             );
+
+            if ($e instanceof RuntimeException) {
+                throw $e;
+            }
 
             throw new RuntimeException('Pemulihan basis data gagal dijalankan. Salinan pengaman sebelum pemulihan telah disimpan.');
         }

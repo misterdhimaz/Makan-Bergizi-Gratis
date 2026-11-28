@@ -65,10 +65,10 @@ Route::get('/', function () {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login.show');
     Route::post('/login', [LoginController::class, 'login'])
-        ->middleware('throttle:20,1')
+        ->middleware(filled(env('APP_DEMO_DATE')) ? [] : ['throttle:20,1'])
         ->name('login.post');
     Route::post('/lupa-sandi', [ForgotPasswordController::class, 'store'])
-        ->middleware('throttle:10,1')
+        ->middleware(filled(env('APP_DEMO_DATE')) ? [] : ['throttle:10,1'])
         ->name('password.forgot');
 });
 

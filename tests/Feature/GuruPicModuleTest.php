@@ -41,7 +41,7 @@ class GuruPicModuleTest extends TestCase
 
         $this->actingAs($ahliGizi)
             ->get(route('guru-pic.dashboard'))
-            ->assertRedirect(route('dashboard'));
+            ->assertForbidden();
 
         $this->actingAs($this->guruPic)
             ->get(route('dashboard'))

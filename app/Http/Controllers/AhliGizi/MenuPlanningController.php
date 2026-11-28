@@ -11,6 +11,7 @@ use App\Services\AuditLogService;
 use App\Services\MenuWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class MenuPlanningController extends Controller
@@ -134,8 +135,12 @@ class MenuPlanningController extends Controller
 
     public function update(Request $request, DailyMenu $dailyMenu): RedirectResponse
     {
-        if ($dailyMenu->isLocked()) {
-            return back()->with('error', 'Menu berstatus Disetujui sudah terkunci dan tidak dapat diubah langsung. Gunakan Ajukan revisi menu.');
+        if (! in_array($dailyMenu->menuStatus(), [
+            MenuStatus::DRAF,
+            MenuStatus::PERLU_REVISI_ANGGARAN,
+            MenuStatus::MINTA_REVISI,
+        ], true)) {
+            return back()->with('error', 'Menu dengan status '.$dailyMenu->menuStatus()->label().' tidak dapat diubah langsung.');
         }
 
         $validated = $this->validateMenu($request);
@@ -166,23 +171,25 @@ class MenuPlanningController extends Controller
             $payload['last_note'] = 'Ahli Gizi: Draf diperbarui';
         }
 
-        $dailyMenu->update($payload);
+        DB::transaction(function () use ($dailyMenu, $payload, $submitAction, $actor, $validated): void {
+            $dailyMenu->update($payload);
 
-        if ($submitAction === 'submit' && $actor) {
-            $this->workflow->submitForBudgetReview($dailyMenu->fresh(), $actor, $validated['notes'] ?? null);
-        } else {
-            AuditLogService::record(
-                action: 'ubah',
-                module: 'Ahli Gizi · Perencanaan Menu',
-                target: $dailyMenu->menu_name,
-                newValues: [
-                    'operational_date' => $validated['operational_date'],
-                    'target_portions' => $validated['target_portions'],
-                    'status' => MenuStatus::DRAF->value,
-                ],
-                actor: $actor,
-            );
-        }
+            if ($submitAction === 'submit' && $actor) {
+                $this->workflow->submitForBudgetReview($dailyMenu->fresh(), $actor, $validated['notes'] ?? null);
+            } else {
+                AuditLogService::record(
+                    action: 'ubah',
+                    module: 'Ahli Gizi · Perencanaan Menu',
+                    target: $dailyMenu->menu_name,
+                    newValues: [
+                        'operational_date' => $validated['operational_date'],
+                        'target_portions' => $validated['target_portions'],
+                        'status' => MenuStatus::DRAF->value,
+                    ],
+                    actor: $actor,
+                );
+            }
+        });
 
         return redirect()
             ->route('ahli-gizi.menu.index')
